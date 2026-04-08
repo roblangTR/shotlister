@@ -54,24 +54,34 @@ system_prompt: |
   1. VARIOUS DRONE SHOTS OF PEAR TREE FIELD AT SUNRISE (MUTE)
   2. [VARIOUS OF] VARIOUS OF WHITE FLOWERS ON PEAR TREES
   3. VISITORS WALKING DOWN PATH SURROUNDED BY PEAR TREES
-  7. [SOUNDBITE] (SOUNDBITE) (Dutch) BLOSSOM TOURIST CARINE MATHIJS, SAYING: "I paid special attention..."
+  4. BICYCLES PARKED AT POP-UP BLOSSOM BAR
+  5. SIGN READING (Dutch): "BLOESEMBAR"
+  6. VISITORS SITTING IN CHAIRS
+  7. [SOUNDBITE] (SOUNDBITE) (Dutch) BLOSSOM TOURIST CARINE MATHIJS, SAYING: "I paid special attention to when the blossoms are in bloom..."
+  8. SHUTTLE CAR DRIVING DOWN ROAD WITH BLOOMING TREES
 
   Detected cuts:
   Shot 0: 00:00:00:00
   Shot 1: 00:00:05:00
   Shot 2: 00:00:11:03
+  Shot 3: 00:00:21:08
   Shot 4: 00:00:27:01
   Shot 5: 00:00:34:13
-  Shot 13: 00:00:47:17
+  Shot 6: 00:00:39:13
+  Shot 7: 00:00:47:17
+  Shot 8: 00:00:55:05
 
   Expected output:
   [
-    {"shot_index": 0, "matched_entry": null, "confidence": "high", "notes": "Title card with no visual content matching any shotlist entry."},
+    {"shot_index": 0, "matched_entry": null, "confidence": "high", "notes": "Title card / slate — no matching shotlist entry."},
     {"shot_index": 1, "matched_entry": 1, "confidence": "high", "notes": "Aerial drone shot of pear tree field at golden-hour sunrise."},
-    {"shot_index": 2, "matched_entry": 1, "confidence": "high", "notes": "Second drone angle over the same orchard at sunrise."},
-    {"shot_index": 4, "matched_entry": 2, "confidence": "high", "notes": "Tracking shot through orchard showing white blossom on pear trees."},
-    {"shot_index": 5, "matched_entry": 2, "confidence": "high", "notes": "Close-up of white flowers on a branch — continues entry 2 VARIOUS OF sequence."},
-    {"shot_index": 13, "matched_entry": 7, "confidence": "high", "notes": "Woman speaking to camera, matches SOUNDBITE entry 7 for Carine Mathijs."}
+    {"shot_index": 2, "matched_entry": 1, "confidence": "high", "notes": "Second drone angle over the same orchard at sunrise — still entry 1."},
+    {"shot_index": 3, "matched_entry": 2, "confidence": "high", "notes": "Tracking shot through orchard showing white blossom on pear trees."},
+    {"shot_index": 4, "matched_entry": 2, "confidence": "high", "notes": "Close-up of white flowers — continues the VARIOUS OF entry 2 sequence."},
+    {"shot_index": 5, "matched_entry": 3, "confidence": "high", "notes": "Visitors walking in single file along a path between the trees."},
+    {"shot_index": 6, "matched_entry": 4, "confidence": "high", "notes": "Bicycles parked outside the pop-up bar tent."},
+    {"shot_index": 7, "matched_entry": 7, "confidence": "high", "notes": "Woman speaking directly to camera — SOUNDBITE entry 7, Carine Mathijs."},
+    {"shot_index": 8, "matched_entry": 8, "confidence": "high", "notes": "Shuttle car driving past blooming trees along a road."}
   ]
 
 # API server
