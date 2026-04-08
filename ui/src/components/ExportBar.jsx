@@ -48,8 +48,16 @@ export default function ExportBar({ jobId, results }) {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-3">
-      <span className="text-sm font-medium text-gray-700 mr-auto">
+      <span className="text-sm font-medium text-gray-700">
         {results.length} shots matched
+      </span>
+      {/* Job ID — lets the user call /debug/{job_id} directly */}
+      <span className="text-xs text-gray-400 font-mono ml-2 mr-auto" title="Use this ID with /debug/{job_id}">
+        job: <span
+          className="cursor-pointer hover:text-blue-600 hover:underline"
+          title="Click to open debug view in new tab"
+          onClick={() => window.open(`/debug/${jobId}`, '_blank')}
+        >{jobId}</span>
       </span>
       <button
         onClick={handleCopy}
