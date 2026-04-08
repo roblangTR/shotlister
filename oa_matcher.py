@@ -391,6 +391,10 @@ class OAMatcher:
         raw = self._call_open_arena(file_uuid, query)
         matches = self._parse_response(raw, len(shots))
 
+        # Attach debug info so callers can inspect what was sent / received.
+        self.last_prompt = query
+        self.last_raw_response = raw
+
         # Build lookup: entry_number -> description
         entry_lookup: dict[int, str] = {
             e["entry_number"]: e["description"] for e in shotlist_entries
@@ -477,6 +481,8 @@ class OAMatcher:
             "Calling Open Arena inference (workflow=%s, file=%s)…",
             self.workflow_id, file_uuid,
         )
+        # Log the full prompt so it can be inspected in the server console.
+        logger.info("=== FULL PROMPT SENT TO GEMINI ===\n%s\n=== END PROMPT ===", query)
         response = self._oa_request(
             "POST",
             "/v3/inference",

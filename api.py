@@ -234,6 +234,8 @@ def match(req: MatchRequest) -> dict:
         raise HTTPException(status_code=502, detail=f"Matching error: {exc}")
 
     job["results"] = results
+    job["prompt"] = getattr(matcher, "last_prompt", "")
+    job["raw_response"] = getattr(matcher, "last_raw_response", "")
 
     # Return paths relative to the thumbnails endpoint
     results_with_thumb_urls = []
@@ -299,6 +301,21 @@ def export(job_id: str, format: str = "csv") -> Response:  # noqa: A002 — shad
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=shotlist_{job_id}.csv"},
     )
+
+
+@app.get("/debug/{job_id}")
+def debug(job_id: str) -> dict:
+    """
+    Return the full prompt sent to Gemini and its raw response for a completed job.
+
+    Useful for inspecting exactly what the model saw and said.
+    """
+    job = _get_job(job_id)
+    return {
+        "job_id": job_id,
+        "prompt": job.get("prompt", ""),
+        "raw_response": job.get("raw_response", ""),
+    }
 
 
 _ALLOWED_VIDEO_EXTENSIONS = {
