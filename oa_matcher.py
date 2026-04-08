@@ -39,8 +39,8 @@ OPEN_ARENA_EXTERNAL = f"{OA_BASE_EXTERNAL}/v3/inference"
 PRESIGN_PATH = "/v3/document/file_upload"
 PARSE_PATH = "/v1/document/file_parsing"
 
-# Open Arena upload limit is 10 MB. We target 9 MB to leave a safety margin.
-UPLOAD_SIZE_LIMIT = 9_000_000  # bytes
+# Open Arena upload limit is 100 MB. We target 95 MB to leave a safety margin.
+UPLOAD_SIZE_LIMIT = 95_000_000  # bytes
 
 # Timeout for the initial connection attempt to the internal URL.
 # External users will fail fast (~3 s) rather than waiting the full read timeout.
@@ -265,7 +265,7 @@ class OAMatcher:
           2. POST to S3 presigned URL → upload bytes (returns 204)
           3. POST /v1/document/file_parsing → register with Open Arena, get file_uuid
 
-        If the file exceeds UPLOAD_SIZE_LIMIT (9 MB) it is first transcoded to
+        If the file exceeds UPLOAD_SIZE_LIMIT (95 MB) it is first transcoded to
         480p with ffmpeg.  The original file is never modified.
 
         Args:
