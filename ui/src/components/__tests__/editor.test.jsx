@@ -370,4 +370,25 @@ describe('EditorPane', () => {
     render(<EditorPane {...defaultProps} videoPath={null} />)
     expect(screen.getByText(/No video/)).toBeInTheDocument()
   })
+
+  it('shows Split and Merge buttons', () => {
+    render(<EditorPane {...defaultProps} />)
+    expect(screen.getByText('Split')).toBeInTheDocument()
+    expect(screen.getByText('Merge')).toBeInTheDocument()
+  })
+
+  it('Merge button is disabled on last shot', () => {
+    render(<EditorPane {...defaultProps} />)
+    // Navigate to last shot
+    fireEvent.click(screen.getByText(/Next/).closest('button'))
+    fireEvent.click(screen.getByText(/Next/).closest('button'))
+    expect(screen.getByText('Merge').closest('button')).toBeDisabled()
+  })
+
+  it('clicking Merge reduces shot count by 1', () => {
+    render(<EditorPane {...defaultProps} />)
+    // Start on shot 1, merge with shot 2
+    fireEvent.click(screen.getByText('Merge'))
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
+  })
 })

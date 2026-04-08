@@ -76,6 +76,58 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
     clrSel(); toast_(`${n} shots ${v?'reviewed':'unreviewed'}`)
   }
 
+  const mergeWithNext = () => {
+    if (selIdx >= shots.length - 1) return
+    const a = shots[selIdx]
+    const b = shots[selIdx + 1]
+    const merged = {
+      ...a,
+      timecode_out: b.timecode_out || '',
+      matched_description: a.matched_description
+        ? b.matched_description
+          ? `${a.matched_description} / ${b.matched_description}`
+          : a.matched_description
+        : b.matched_description,
+      notes: [a.notes, b.notes].filter(Boolean).join(' | '),
+    }
+    const next = [
+      ...shots.slice(0, selIdx),
+      merged,
+      ...shots.slice(selIdx + 2),
+    ].map((s, i) => ({ ...s, shot_index: i }))
+    upd(next, `Merge shots ${selIdx + 1} + ${selIdx + 2}`)
+    toast_(`Shots ${selIdx + 1} and ${selIdx + 2} merged`)
+  }
+
+  const splitAtPlayhead = () => {
+    if (!videoRef.current) return
+    const secs = videoRef.current.currentTime
+    const splitTC = secsToTC(secs)
+    const s = shots[selIdx]
+    // Don't split if playhead is outside the shot's range (or at the start)
+    const inSecs = s.seconds || 0
+    if (secs <= inSecs + 0.04) { toast_('Playhead must be after shot IN point to split'); return }
+    const a = { ...s, timecode_out: splitTC }
+    const b = {
+      ...s,
+      shot_index: -1,
+      timecode: splitTC, timecode_in: splitTC,
+      seconds: secs,
+      matched_description: '',
+      notes: '',
+      human_reviewed: false,
+      is_white_flash: false,
+    }
+    const next = [
+      ...shots.slice(0, selIdx),
+      a, b,
+      ...shots.slice(selIdx + 1),
+    ].map((s, i) => ({ ...s, shot_index: i }))
+    upd(next, `Split shot ${selIdx + 1} at ${splitTC}`)
+    setSelIdx(selIdx + 1)
+    toast_(`Shot split at ${splitTC}`)
+  }
+
   const insertWF = () => {
     const secs = videoRef.current?.currentTime || 0
     const tcIn = secsToTC(secs), tcOut = secsToTC(secs + wfF/25)
@@ -110,6 +162,8 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
       else if (e.key==='End')        { e.preventDefault(); go(shots.length-1) }
       else if (e.key===' ')         { e.preventDefault(); videoRef.current?.paused?videoRef.current.play():videoRef.current?.pause() }
       else if (e.key==='r'||e.key==='R') togRev(selIdx)
+      else if (e.key==='s'||e.key==='S') splitAtPlayhead()
+      else if (e.key==='m'||e.key==='M') mergeWithNext()
       else if (e.key==='w'||e.key==='W') setShowWF(true)
       else if (e.key==='i'||e.key==='I') { const t=secsToTC(videoRef.current?.currentTime||0); setF('timecode_in',t); toast_(`IN: ${t}`) }
       else if (e.key==='o'||e.key==='O') { const t=secsToTC(videoRef.current?.currentTime||0); setF('timecode_out',t); toast_(`OUT: ${t}`) }
@@ -164,11 +218,15 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
                 Shot {selIdx+1}
                 {sel.is_white_flash && <span className="ml-1 bg-gray-800 text-white px-1 rounded normal-case font-normal">WF</span>}
               </span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 <button onClick={()=>togRev(selIdx)} title="R"
                   className={`text-xs px-2 py-0.5 rounded border font-medium ${sel.human_reviewed?'bg-green-100 text-green-800 border-green-300':'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'}`}>
-                  {sel.human_reviewed ? '✓ Reviewed' : 'Review'}
+                  {sel.human_reviewed ? '✓' : 'Rev'}
                 </button>
+                <button onClick={splitAtPlayhead} title="S — split at playhead"
+                  className="text-xs px-2 py-0.5 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium">Split</button>
+                <button onClick={mergeWithNext} disabled={selIdx >= shots.length - 1} title="M — merge with next"
+                  className="text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50 font-medium disabled:opacity-40">Merge</button>
                 <button onClick={()=>setShowWF(true)} title="W"
                   className="text-xs px-2 py-0.5 rounded border-2 border-gray-900 font-bold hover:bg-gray-100">WF</button>
                 <button onClick={()=>delShot(selIdx)} title="Del"
@@ -276,6 +334,8 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
                 ['I',             'Set IN point from playhead'],
                 ['O',             'Set OUT point from playhead'],
                 ['R',             'Toggle reviewed'],
+                ['S',             'Split shot at playhead'],
+                ['M',             'Merge shot with next'],
                 ['W',             'White Flash modal'],
                 ['Delete',        'Delete selected shot'],
                 ['Ctrl+Z',        'Undo'],
