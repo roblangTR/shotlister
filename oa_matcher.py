@@ -53,24 +53,37 @@ REQUEST_TIMEOUT = 120  # seconds
 COMPONENT_ID = "llm_LLM_task"
 
 # --- Gemini prompt template ---
-# Self-contained — all instructions are in the query body.
-# System prompts in modelparams are not reliably applied per the RadioScribe codebase.
-_PROMPT_TEMPLATE = """\
-You are a video production assistant. You have been given a video and a numbered \
-shotlist. Your task is to match each detected shot cut in the video to the most \
-appropriate shotlist entry.
+# When a system prompt is configured in the Open Arena workflow, this query can
+# be data-only (shotlist + cuts). When no system prompt is set, the full
+# self-contained version is used as a fallback.
+_PROMPT_TEMPLATE_SHORT = """\
+SHOTLIST:
+{shotlist_lines}
+
+DETECTED SHOT CUTS:
+{shot_lines}
+
+Match each shot to a shotlist entry. Return ONLY the JSON array."""
+
+# Full self-contained prompt — used when no system prompt is available in the workflow.
+_PROMPT_TEMPLATE_FULL = """\
+You are a professional video timecoding assistant for Reuters News Agency. \
+You have been given a news video and a numbered shotlist. Match each detected \
+scene cut to the most appropriate shotlist entry.
+
+SHOTLIST FORMAT:
+- [VARIOUS OF] entries represent multiple physical shots — several consecutive \
+cuts may match the same entry.
+- [SOUNDBITE] entries are interview clips — match when a speaker is on camera.
+- The first shot is often a title card with no match — use null.
 
 SHOTLIST:
 {shotlist_lines}
 
-DETECTED SHOT CUTS (timecodes where a new shot begins):
+DETECTED SHOT CUTS:
 {shot_lines}
 
-For each detected shot, watch the video from that timecode and identify which \
-shotlist entry it corresponds to. Some shotlist entries marked "VARIOUS OF" may \
-match multiple consecutive shots.
-
-Return a JSON array with one object per detected shot, in order:
+Return a JSON array with one object per shot, in order:
 [
   {{
     "shot_index": 0,
@@ -82,9 +95,9 @@ Return a JSON array with one object per detected shot, in order:
 ]
 
 Rules:
-- shot_index is the 0-based index of the detected shot cut.
-- matched_entry is the 1-based entry number from the shotlist. null if no match.
-- confidence is "high", "medium", or "low".
+- shot_index: 0-based index of the detected cut.
+- matched_entry: 1-based entry number from the shotlist. null if no match.
+- confidence: "high" (unambiguous), "medium" (probable), or "low" (uncertain).
 - Respond with ONLY the JSON array. No preamble, no markdown."""
 
 
@@ -97,10 +110,19 @@ class OAMatcher:
         workflow_id: Open Arena workflow UUID for the Gemini video-analysis workflow.
     """
 
-    def __init__(self, esso_token: str, workflow_id: str) -> None:
-        """Initialise with an ESSO token and workflow ID."""
+    def __init__(self, esso_token: str, workflow_id: str, system_prompt: str = "") -> None:
+        """Initialise with an ESSO token, workflow ID, and optional system prompt.
+
+        Args:
+            esso_token: Daily ESSO authentication token.
+            workflow_id: Open Arena workflow UUID.
+            system_prompt: System prompt to include in the inference payload.
+                When non-empty, a short data-only user query is used. When
+                empty, the full self-contained prompt is used instead.
+        """
         self.esso_token = esso_token
         self.workflow_id = workflow_id
+        self.system_prompt = system_prompt
 
     def update_token(self, esso_token: str) -> None:
         """Update the ESSO token (called when the user pastes a fresh daily token)."""
@@ -444,7 +466,8 @@ class OAMatcher:
         for shot in shots:
             shot_lines.append(f"Shot {shot['shot_index']}: {shot['timecode']}")
 
-        return _PROMPT_TEMPLATE.format(
+        template = _PROMPT_TEMPLATE_SHORT if self.system_prompt else _PROMPT_TEMPLATE_FULL
+        return template.format(
             shotlist_lines="\n".join(shotlist_lines),
             shot_lines="\n".join(shot_lines),
         )
@@ -476,6 +499,12 @@ class OAMatcher:
             # File context uses the 'context' envelope, not a top-level file key.
             "context": {"input_type": "file_uuid", "value": [file_uuid]},
         }
+
+        # Include system prompt in modelparams if configured.
+        # Note: Open Arena applies system prompts inconsistently depending on
+        # the workflow — the full self-contained prompt is always the fallback.
+        if self.system_prompt:
+            payload["modelparams"] = {"system_prompt": self.system_prompt}
 
         logger.info(
             "Calling Open Arena inference (workflow=%s, file=%s)…",

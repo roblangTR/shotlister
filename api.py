@@ -222,7 +222,8 @@ def match(req: MatchRequest) -> dict:
         raise HTTPException(status_code=400, detail="No entries found in shotlist.")
 
     # --- Match via Open Arena ---
-    matcher = OAMatcher(esso_token=req.esso_token, workflow_id=req.workflow_id)
+    system_prompt = _CFG.get("system_prompt", "")
+    matcher = OAMatcher(esso_token=req.esso_token, workflow_id=req.workflow_id, system_prompt=system_prompt)
     try:
         results = matcher.match(req.video_path, shots, entries)
     except RuntimeError as exc:
