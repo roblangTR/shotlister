@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './index.css'
 import VideoUpload from './components/VideoUpload'
 import ShotlistInput from './components/ShotlistInput'
-import ReviewPane from './components/ReviewPane'
+import EditorPane from './components/EditorPane'
 import ExportBar from './components/ExportBar'
 
 export default function App() {
@@ -60,7 +60,7 @@ export default function App() {
       {/* Review pane — fills remaining space */}
       {hasResults && (
         <div className="flex-1 flex flex-col min-h-0 px-4 pb-2 gap-2">
-          <ReviewPane
+          <EditorPane
             results={results}
             shotlistEntries={shotlistEntries}
             onResultsChange={setResults}
