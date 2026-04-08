@@ -60,7 +60,8 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
 
   useEffect(() => {
     const s = shots[selIdx]; if(!s) return
-    shotRefs.current[s.shot_index]?.scrollIntoView({ block:'nearest', behavior:'smooth' })
+    const el = shotRefs.current[s.shot_index]
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block:'nearest', behavior:'smooth' })
   }, [selIdx, shots])
 
   const go      = i => { if(i>=0 && i<shots.length) setSel(i) }
