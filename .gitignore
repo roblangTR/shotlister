@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local config override (may contain secrets)
+config.local.yaml
+
+# macOS
+.DS_Store
+
+# Node / UI
+ui/node_modules/
+ui/dist/
+
+# Temp files created by the app at runtime
+/tmp/
