@@ -76,6 +76,40 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
     clrSel(); toast_(`${n} shots ${v?'reviewed':'unreviewed'}`)
   }
 
+  const bulkMerge = () => {
+    if (selIds.size < 2) return
+    // Find the selected shots in order
+    const selected = shots.filter(s => selIds.has(s.shot_index))
+    selected.sort((a, b) => a.shot_index - b.shot_index)
+    // Verify they are contiguous
+    for (let i = 1; i < selected.length; i++) {
+      if (selected[i].shot_index !== selected[i-1].shot_index + 1) {
+        toast_('Selected shots must be adjacent to merge', 2500); return
+      }
+    }
+    const first = selected[0]
+    const last  = selected[selected.length - 1]
+    const merged = {
+      ...first,
+      timecode_out: last.timecode_out || '',
+      matched_description: selected
+        .map(s => s.matched_description).filter(Boolean).join(' / '),
+      notes: selected.map(s => s.notes).filter(Boolean).join(' | '),
+    }
+    // Replace the range with the single merged shot
+    const startIdx = shots.indexOf(first)
+    const endIdx   = shots.indexOf(last)
+    const next = [
+      ...shots.slice(0, startIdx),
+      merged,
+      ...shots.slice(endIdx + 1),
+    ].map((s, i) => ({ ...s, shot_index: i }))
+    upd(next, `Merge ${selected.length} shots`)
+    setSel(startIdx)
+    clrSel()
+    toast_(`${selected.length} shots merged`)
+  }
+
   const mergeWithNext = () => {
     if (selIdx >= shots.length - 1) return
     const a = shots[selIdx]
@@ -294,7 +328,7 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
         shots={shots} selIdx={selIdx} shotRefs={shotRefs}
         selIds={selIds} reviewed={reviewed}
         onSelect={setSel} onToggleSel={togSel}
-        onBulkRev={bulkRev} onClearSel={clrSel}
+        onBulkRev={bulkRev} onBulkMerge={bulkMerge} onClearSel={clrSel}
         onHelp={()=>setHelp(true)}
       />
 

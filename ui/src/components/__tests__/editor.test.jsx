@@ -184,6 +184,7 @@ describe('ShotList', () => {
     onSelect: vi.fn(),
     onToggleSel: vi.fn(),
     onBulkRev: vi.fn(),
+    onBulkMerge: vi.fn(),
     onClearSel: vi.fn(),
     onHelp: vi.fn(),
   }
@@ -246,6 +247,13 @@ describe('ShotList', () => {
     const reviewBtn = screen.getAllByText(/Review all/i).find(el => el.closest('button')?.className.includes('bg-green-600'))
     fireEvent.click(reviewBtn.closest('button'))
     expect(onBulkRev).toHaveBeenCalledWith(true)
+  })
+
+  it('calls onBulkMerge when Merge selected is clicked', () => {
+    const onBulkMerge = vi.fn()
+    render(<ShotList {...defaultProps} selIds={new Set([0, 1])} onBulkMerge={onBulkMerge} />)
+    fireEvent.click(screen.getByText('Merge selected'))
+    expect(onBulkMerge).toHaveBeenCalled()
   })
 
   it('calls onHelp when ? button is clicked', () => {

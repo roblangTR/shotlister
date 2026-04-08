@@ -12,7 +12,7 @@ const CONF = {
 
 export default function ShotList({
   shots, selIdx, shotRefs, selIds, reviewed,
-  onSelect, onToggleSel, onBulkRev, onClearSel, onHelp,
+  onSelect, onToggleSel, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
   // Group shots by location_block
   const groups = []
@@ -47,6 +47,10 @@ export default function ShotList({
             <button onClick={() => onBulkRev(false)}
               className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-300">
               Unreview all
+            </button>
+            <button onClick={onBulkMerge}
+              className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded hover:bg-purple-700">
+              Merge selected
             </button>
             <button onClick={onClearSel} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
           </div>
