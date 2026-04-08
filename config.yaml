@@ -1,0 +1,37 @@
+# Detection parameters (AdaptiveDetector tuned values from parameter sweep)
+#
+# threshold:     Sensitivity of the AdaptiveDetector.
+#                Lower values catch more cuts (fewer missed cuts, more false positives).
+#                Higher values are stricter (fewer false positives, more missed cuts).
+#                Typical range: 1.5 – 4.0. Default: 2.2
+#
+# min_scene_len: Minimum number of frames a scene must last to be counted as a cut.
+#                Increase to suppress fast flashes / repeated cuts.
+#                At 25 fps, 14 frames ≈ 0.56 s. Default: 14
+detection:
+  threshold: 2.2
+  min_scene_len: 14
+  detector: adaptive
+  luma_only: false
+  merge_frames: 0
+
+# Open Arena API
+open_arena:
+  external_url: https://aiopenarena.thomsonreuters.com/v3/inference
+  internal_url: https://aiopenarena.gcs.int.thomsonreuters.com/v3/inference
+  upload_url: https://aiopenarena.thomsonreuters.com/v1/files/upload
+  internal_connect_timeout: 3
+  request_timeout: 120
+  # workflow_id: set at runtime — pass via API body or MCP tool parameter
+
+# API server
+server:
+  host: 127.0.0.1
+  port: 8000
+  cors_origins:
+    - http://localhost:5173
+    - http://localhost:3000
+
+# Job store
+jobs:
+  ttl_seconds: 3600
