@@ -500,12 +500,6 @@ class OAMatcher:
             "context": {"input_type": "file_uuid", "value": [file_uuid]},
         }
 
-        # Include system prompt in modelparams if configured.
-        # Note: Open Arena applies system prompts inconsistently depending on
-        # the workflow — the full self-contained prompt is always the fallback.
-        if self.system_prompt:
-            payload["modelparams"] = {"system_prompt": self.system_prompt}
-
         logger.info(
             "Calling Open Arena inference (workflow=%s, file=%s)…",
             self.workflow_id, file_uuid,
