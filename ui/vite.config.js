@@ -13,6 +13,7 @@ export default defineConfig({
       '/thumbnails': 'http://127.0.0.1:8000',
       '/browse': 'http://127.0.0.1:8000',
       '/video': 'http://127.0.0.1:8000',
+      '/debug': 'http://127.0.0.1:8000',
     },
   },
 })
