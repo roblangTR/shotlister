@@ -350,12 +350,29 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
                     <span className="text-xs text-gray-700">{sel.source}</span>
                   </div>
                 )}
-                {sel.restrictions && (
-                  <div className="flex gap-1.5 items-start">
-                    <span className="text-xs text-gray-400 w-20 shrink-0">Restrictions</span>
-                    <span className="text-xs text-gray-700">{sel.restrictions}</span>
-                  </div>
-                )}
+                {/* Show split Broadcast/Digital if available, otherwise raw restrictions */}
+                {(sel.restrictions_broadcast || sel.restrictions_digital)
+                  ? <>
+                      {sel.restrictions_broadcast && (
+                        <div className="flex gap-1.5 items-start">
+                          <span className="text-xs text-gray-400 w-20 shrink-0">Broadcast</span>
+                          <span className="text-xs text-gray-700">{sel.restrictions_broadcast}</span>
+                        </div>
+                      )}
+                      {sel.restrictions_digital && (
+                        <div className="flex gap-1.5 items-start">
+                          <span className="text-xs text-gray-400 w-20 shrink-0">Digital</span>
+                          <span className="text-xs text-gray-700">{sel.restrictions_digital}</span>
+                        </div>
+                      )}
+                    </>
+                  : sel.restrictions && (
+                      <div className="flex gap-1.5 items-start">
+                        <span className="text-xs text-gray-400 w-20 shrink-0">Restrictions</span>
+                        <span className="text-xs text-gray-700">{sel.restrictions}</span>
+                      </div>
+                    )
+                }
               </div>
             )}
           </div>

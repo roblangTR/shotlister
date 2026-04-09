@@ -214,7 +214,37 @@ def _parse_dateline(location_block: str) -> dict[str, str]:
                 # Treat as source with no restrictions
                 source = group
 
-    return {"location": location, "date": date, "source": source, "restrictions": restrictions}
+    # Split restrictions into Broadcast and Digital if both keywords present
+    restrictions_broadcast = ""
+    restrictions_digital = ""
+    if restrictions:
+        lower = restrictions.lower()
+        if "broadcast:" in lower and "digital:" in lower:
+            bc_idx = lower.index("broadcast:")
+            dg_idx = lower.index("digital:")
+            if bc_idx < dg_idx:
+                restrictions_broadcast = restrictions[bc_idx + len("broadcast:"):dg_idx].strip().rstrip(".")
+                restrictions_digital = restrictions[dg_idx + len("digital:"):].strip().rstrip(".")
+            else:
+                restrictions_digital = restrictions[dg_idx + len("digital:"):bc_idx].strip().rstrip(".")
+                restrictions_broadcast = restrictions[bc_idx + len("broadcast:"):].strip().rstrip(".")
+        elif "broadcast:" in lower:
+            restrictions_broadcast = restrictions[lower.index("broadcast:") + len("broadcast:"):].strip().rstrip(".")
+        elif "digital:" in lower:
+            restrictions_digital = restrictions[lower.index("digital:") + len("digital:"):].strip().rstrip(".")
+        else:
+            # Single restriction string — applies to both
+            restrictions_broadcast = restrictions
+            restrictions_digital = restrictions
+
+    return {
+        "location": location,
+        "date": date,
+        "source": source,
+        "restrictions": restrictions,
+        "restrictions_broadcast": restrictions_broadcast,
+        "restrictions_digital": restrictions_digital,
+    }
 
 
 def _clean_description(body: str) -> str:

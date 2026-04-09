@@ -444,12 +444,16 @@ class OAMatcher:
                 shot["date"] = matched_entry_dict.get("date", "")
                 shot["source"] = matched_entry_dict.get("source", "")
                 shot["restrictions"] = matched_entry_dict.get("restrictions", "")
+                shot["restrictions_broadcast"] = matched_entry_dict.get("restrictions_broadcast", "")
+                shot["restrictions_digital"] = matched_entry_dict.get("restrictions_digital", "")
                 shot["location_block"] = matched_entry_dict.get("location_block", "")
             else:
                 shot.setdefault("location", "")
                 shot.setdefault("date", "")
                 shot.setdefault("source", "")
                 shot.setdefault("restrictions", "")
+                shot.setdefault("restrictions_broadcast", "")
+                shot.setdefault("restrictions_digital", "")
                 shot.setdefault("location_block", "")
 
         return shots
