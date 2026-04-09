@@ -19,48 +19,48 @@ export default function ShotList({
   onSelect, onToggleSel, onSetSelIds, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
   // ---- Option (Alt) range selection ----
-  // First ⌥+click sets the anchor. Second ⌥+click selects the full range.
-  // ⌥+drag also works: hover over shots to extend the range live.
-  const [anchor, setAnchor] = useState(null)   // shot_index of anchor
-  const [dragging, setDragging] = useState(false)
+  // ⌥+click first shot → sets anchor (shown in purple).
+  // ⌥+click any other shot → selects the full range from anchor to here.
+  // Anchor is stored in a ref so onMouseDown/onClick don't race.
+  const anchorRef = useState(null)          // [anchorVal, setAnchor]
+  const anchor = anchorRef[0]
+  const setAnchor = anchorRef[1]
+  const isDragging = useState(false)        // [bool, setter]
+  const dragging = isDragging[0]
+  const setDragging = isDragging[1]
+
+  function applyRange(fromIdx, toIdx) {
+    const lo = Math.min(fromIdx, toIdx)
+    const hi = Math.max(fromIdx, toIdx)
+    onSetSelIds(new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index)))
+  }
 
   function handleRowClick(e, shotIndex, idx) {
     if (!e.altKey) { onSelect(idx); return }
     e.preventDefault()
     if (anchor === null) {
-      // First ⌥+click — set anchor, select just this shot
       setAnchor(shotIndex)
       onSetSelIds(new Set([shotIndex]))
     } else {
-      // Second ⌥+click — extend selection from anchor to here
-      const lo = Math.min(anchor, shotIndex)
-      const hi = Math.max(anchor, shotIndex)
-      const range = new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index))
-      onSetSelIds(range)
-      setAnchor(null) // reset anchor after completing the range
+      applyRange(anchor, shotIndex)
+      setAnchor(null)
     }
   }
 
-  function handleRowMouseDown(e, shotIndex) {
+  // onMouseDown only starts the drag — does NOT set anchor (onClick handles that)
+  function handleRowMouseDown(e) {
     if (!e.altKey) return
     e.preventDefault()
     setDragging(true)
-    if (anchor === null) {
-      setAnchor(shotIndex)
-      onSetSelIds(new Set([shotIndex]))
-    }
   }
 
   function handleRowMouseEnter(shotIndex) {
     if (!dragging || anchor === null) return
-    const lo = Math.min(anchor, shotIndex)
-    const hi = Math.max(anchor, shotIndex)
-    const range = new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index))
-    onSetSelIds(range)
+    applyRange(anchor, shotIndex)
   }
 
   function handleMouseUp() {
-    if (dragging) { setDragging(false); setAnchor(null) }
+    if (dragging) { setDragging(false) }
   }
 
   // Group shots by location_block
