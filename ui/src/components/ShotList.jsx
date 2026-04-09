@@ -18,9 +18,10 @@ export default function ShotList({
   shots, selIdx, shotRefs, selIds, reviewed,
   onSelect, onToggleSel, onSetSelIds, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
-  // ---- Option (Alt) range selection ----
-  // ⌥+click first shot  → sets anchor (purple tint on checked rows).
-  // ⌥+click second shot → fills the range, clears anchor.
+  // ---- Range selection: ⌥+click or Shift+click ----
+  // First ⌥/Shift+click  → sets anchor (purple ring).
+  // Second ⌥/Shift+click → fills range, clears anchor.
+  // Plain click           → navigate, clears anchor.
   const [anchor, setAnchor] = useState(null)
 
   function applyRange(from, to) {
@@ -30,19 +31,17 @@ export default function ShotList({
   }
 
   function handleRowClick(e, shotIndex, listIdx) {
-    if (!e.altKey) {
-      // plain click — navigate to shot
+    const isRange = e.altKey || e.shiftKey
+    if (!isRange) {
       setAnchor(null)
       onSelect(listIdx)
       return
     }
-    // ⌥+click
+    e.preventDefault()
     if (anchor === null) {
-      // first click — set anchor
       setAnchor(shotIndex)
       onSetSelIds(new Set([shotIndex]))
     } else {
-      // second click — extend to range and finish
       applyRange(anchor, shotIndex)
       setAnchor(null)
     }
@@ -71,7 +70,12 @@ export default function ShotList({
             style={{ width: shots.length ? `${(reviewed / shots.length) * 100}%` : '0%' }}
           />
         </div>
-        {selIds.size > 0 && (
+        {anchor !== null && (
+          <span className="text-xs text-purple-700 font-medium bg-purple-50 border border-purple-200 rounded px-2 py-0.5">
+            ⌥ anchor set — click end shot
+          </span>
+        )}
+        {selIds.size > 0 && anchor === null && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-blue-700 font-medium">{selIds.size} selected</span>
             <button onClick={() => onBulkRev(true)}
@@ -88,6 +92,9 @@ export default function ShotList({
             </button>
             <button onClick={onClearSel} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
           </div>
+        )}
+        {selIds.size > 0 && anchor !== null && (
+          <button onClick={() => { onClearSel(); setAnchor(null) }} className="text-xs text-gray-400 hover:text-gray-600 ml-1">Cancel</button>
         )}
         <button onClick={onHelp} className="text-xs text-gray-400 hover:text-gray-600 ml-auto" title="F1 — keyboard shortcuts">?</button>
       </div>
