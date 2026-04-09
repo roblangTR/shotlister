@@ -454,8 +454,8 @@ class TestUploadVideoErrorPaths:
 class TestCompressVideo:
     """Tests for _compress_video().  ffmpeg calls are mocked throughout."""
 
-    def _make_large_video(self, tmp_path, size_bytes=10_000_001):
-        """Create a fake file larger than UPLOAD_SIZE_LIMIT."""
+    def _make_large_video(self, tmp_path, size_bytes=96_000_001):
+        """Create a fake file larger than UPLOAD_SIZE_LIMIT (95 MB)."""
         video = tmp_path / "big.mp4"
         video.write_bytes(b"\x00" * size_bytes)
         return video

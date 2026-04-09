@@ -33,6 +33,22 @@ from scene_detector import detect_scenes, get_video_info
 from frame_extractor import extract_frames
 from shotlist_parser import parse_shotlist
 from oa_matcher import OAMatcher
+from timecode_utils import frames_to_tc
+
+
+def _fill_out_timecodes(shots: list[dict], total_frames: int, fps: float) -> list[dict]:
+    """Set timecode_out for every shot.
+
+    Each shot's OUT = the next shot's IN timecode.
+    The final shot's OUT = the last frame timecode derived from total_frames/fps.
+    """
+    last_tc = frames_to_tc(total_frames, fps) if fps else "00:00:00:00"
+    for i, shot in enumerate(shots):
+        if i + 1 < len(shots):
+            shot["timecode_out"] = shots[i + 1].get("timecode_in") or shots[i + 1].get("timecode", "")
+        else:
+            shot["timecode_out"] = last_tc
+    return shots
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -152,6 +168,8 @@ def detect(req: DetectRequest) -> dict:
         "thumbnails_dir": None,
     }
 
+    shots = _fill_out_timecodes(shots, total_frames, fps)
+
     return {
         "job_id": job_id,
         "shots": shots,
@@ -233,6 +251,10 @@ def match(req: MatchRequest) -> dict:
     except Exception as exc:
         logger.exception("OA matching failed: %s", exc)
         raise HTTPException(status_code=502, detail=f"Matching error: {exc}")
+
+    # Fill OUT timecodes (next shot's IN; last shot = duration)
+    total_frames_match, fps_match = get_video_info(req.video_path)
+    results = _fill_out_timecodes(results, total_frames_match, fps_match)
 
     job["results"] = results
     job["prompt"] = getattr(matcher, "last_prompt", "")

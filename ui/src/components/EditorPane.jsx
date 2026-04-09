@@ -327,6 +327,37 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
               <textarea value={sel.notes||''} rows={2} onChange={e=>setF('notes',e.target.value)}
                 className="border border-gray-300 rounded px-2 py-1 text-xs resize-y focus:outline-none focus:ring-1 focus:ring-blue-400" />
             </label>
+
+            {/* Dateline fields */}
+            {(sel.location || sel.date || sel.source || sel.restrictions) && (
+              <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dateline</span>
+                {sel.location && (
+                  <div className="flex gap-1.5 items-start">
+                    <span className="text-xs text-gray-400 w-20 shrink-0">Location</span>
+                    <span className="text-xs text-gray-700">{sel.location}</span>
+                  </div>
+                )}
+                {sel.date && (
+                  <div className="flex gap-1.5 items-start">
+                    <span className="text-xs text-gray-400 w-20 shrink-0">Date</span>
+                    <span className="text-xs text-gray-700">{sel.date}</span>
+                  </div>
+                )}
+                {sel.source && (
+                  <div className="flex gap-1.5 items-start">
+                    <span className="text-xs text-gray-400 w-20 shrink-0">Source</span>
+                    <span className="text-xs text-gray-700">{sel.source}</span>
+                  </div>
+                )}
+                {sel.restrictions && (
+                  <div className="flex gap-1.5 items-start">
+                    <span className="text-xs text-gray-400 w-20 shrink-0">Restrictions</span>
+                    <span className="text-xs text-gray-700">{sel.restrictions}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

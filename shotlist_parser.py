@@ -117,12 +117,17 @@ def parse_shotlist(text: str) -> list[dict]:
         location_block = location_by_entry.get(entry_number, "")
         raw = f"{num_str}. {body}".strip()
 
+        dateline = _parse_dateline(location_block)
         results.append({
             "entry_number": entry_number,
             "description": description,
             "is_soundbite": is_soundbite,
             "is_various": is_various,
             "location_block": location_block,
+            "location": dateline["location"],
+            "date": dateline["date"],
+            "source": dateline["source"],
+            "restrictions": dateline["restrictions"],
             "raw": raw,
         })
 
@@ -157,6 +162,59 @@ def _is_location_block(line: str) -> bool:
         return False
     # All alpha chars in the prefix must be uppercase
     return alpha.isupper()
+
+
+def _parse_dateline(location_block: str) -> dict[str, str]:
+    """
+    Parse a Reuters location/date/source/restrictions block.
+
+    Formats handled:
+      SEOUL, SOUTH KOREA (APRIL 8, 2026) (REUTERS - Access all)
+      CAPE CANAVERAL, FLORIDA (FILE - NOVEMBER 16, 2022) (NASA - Editorial use only)
+      IN SPACE (RECENT) (NASA TV - For editorial use only, no resales)
+      WASHINGTON D.C. (RECENT - SEPTEMBER 12, 2025) (REUTERS - Access all)
+
+    Returns:
+        {"location": str, "date": str, "source": str, "restrictions": str}
+    """
+    if not location_block:
+        return {"location": "", "date": "", "source": "", "restrictions": ""}
+
+    # 1. Location = text before the first parenthesis (trimmed)
+    location = location_block.split("(")[0].strip().rstrip(",").strip()
+
+    # 2. Extract all parenthesised groups
+    paren_groups = re.findall(r"\(([^)]+)\)", location_block)
+
+    date = ""
+    source = ""
+    restrictions = ""
+
+    for group in paren_groups:
+        group = group.strip()
+        # Groups containing " - " are either "FILE - DATE", "RECENT - DATE", or "SOURCE - RESTRICTIONS"
+        if " - " in group:
+            left, _, right = group.partition(" - ")
+            left = left.strip()
+            right = right.strip()
+            # If left side is FILE or RECENT, it's a date group
+            if left.upper() in ("FILE", "RECENT"):
+                date = right
+            else:
+                # SOURCE - RESTRICTIONS
+                source = left
+                restrictions = right
+        else:
+            # Pure date group (e.g. "APRIL 8, 2026") or "RECENT"
+            upper = group.upper()
+            if upper == "RECENT" or any(m in upper for m in ("JANUARY", "FEBRUARY", "MARCH", "APRIL",
+                "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER")):
+                date = group
+            else:
+                # Treat as source with no restrictions
+                source = group
+
+    return {"location": location, "date": date, "source": source, "restrictions": restrictions}
 
 
 def _clean_description(body: str) -> str:

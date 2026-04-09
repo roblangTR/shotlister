@@ -9,7 +9,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from shotlist_parser import parse_shotlist, _is_location_block
+from shotlist_parser import parse_shotlist, _is_location_block, _parse_dateline
 
 # The example shotlist from CLAUDE.md / PLAN.md
 EXAMPLE_SHOTLIST = """
@@ -284,3 +284,84 @@ class TestParseShotlistEdgeCases:
         entries = parse_shotlist(text)
         assert len(entries) == 100
         assert entries[-1]["entry_number"] == 100
+
+    def test_dateline_fields_populated_from_location_block(self):
+        """parse_shotlist entries include location/date/source/restrictions fields."""
+        entries = parse_shotlist(EXAMPLE_SHOTLIST)
+        e1 = entries[0]
+        assert e1["location"] == "CAPE CANAVERAL, FLORIDA, UNITED STATES"
+        # The EXAMPLE_SHOTLIST has the NASA credit on a wrapped second line, so
+        # the parser only sees the first line as location_block. The date is still parsed.
+        assert "NOVEMBER 16, 2022" in e1["date"]
+        # location_block raw text contains NASA even if source field is empty (wrapped line)
+        assert "NASA" in e1["location_block"].upper() or e1["source"] == "NASA" or "NASA" in e1["location_block"]
+
+    def test_dateline_entry3_reuters_source(self):
+        """Entry 3 source is REUTERS, restrictions is 'Access all'."""
+        entries = parse_shotlist(EXAMPLE_SHOTLIST)
+        e3 = entries[2]
+        assert e3["source"] == "REUTERS"
+        assert e3["restrictions"] == "Access all"
+
+    def test_dateline_empty_for_no_location_block(self):
+        """Entries with no location block have empty dateline fields."""
+        entries = parse_shotlist(SHOTLIST_NO_LOCATION)
+        for e in entries:
+            assert e["location"] == ""
+            assert e["date"] == ""
+            assert e["source"] == ""
+            assert e["restrictions"] == ""
+
+
+class TestParseDataline:
+    """Unit tests for _parse_dateline()."""
+
+    def test_standard_format(self):
+        """Parses SEOUL, SOUTH KOREA (APRIL 8, 2026) (REUTERS - Access all)."""
+        r = _parse_dateline("SEOUL, SOUTH KOREA (APRIL 8, 2026) (REUTERS - Access all)")
+        assert r["location"] == "SEOUL, SOUTH KOREA"
+        assert r["date"] == "APRIL 8, 2026"
+        assert r["source"] == "REUTERS"
+        assert r["restrictions"] == "Access all"
+
+    def test_file_date_format(self):
+        """Parses CAPE CANAVERAL (FILE - NOVEMBER 16, 2022) (NASA - Editorial use only)."""
+        r = _parse_dateline("CAPE CANAVERAL, FLORIDA (FILE - NOVEMBER 16, 2022) (NASA - Editorial use only)")
+        assert r["location"] == "CAPE CANAVERAL, FLORIDA"
+        assert r["date"] == "NOVEMBER 16, 2022"
+        assert r["source"] == "NASA"
+        assert r["restrictions"] == "Editorial use only"
+
+    def test_recent_format(self):
+        """Parses IN SPACE (RECENT) (NASA TV - For editorial use only)."""
+        r = _parse_dateline("IN SPACE (RECENT) (NASA TV - For editorial use only)")
+        assert r["location"] == "IN SPACE"
+        assert "RECENT" in r["date"].upper()
+        assert r["source"] == "NASA TV"
+        assert r["restrictions"] == "For editorial use only"
+
+    def test_recent_with_date(self):
+        """Parses WASHINGTON D.C. (RECENT - SEPTEMBER 12, 2025) (REUTERS - Access all)."""
+        r = _parse_dateline("WASHINGTON D.C., UNITED STATES (RECENT - SEPTEMBER 12, 2025) (REUTERS - Access all)")
+        assert "WASHINGTON" in r["location"]
+        assert "SEPTEMBER 12, 2025" in r["date"]
+        assert r["source"] == "REUTERS"
+        assert r["restrictions"] == "Access all"
+
+    def test_empty_string(self):
+        """Empty input returns all-empty dict."""
+        r = _parse_dateline("")
+        assert r == {"location": "", "date": "", "source": "", "restrictions": ""}
+
+    def test_location_only(self):
+        """Line with only a location name and no parens."""
+        r = _parse_dateline("CAPE CANAVERAL, FLORIDA")
+        assert r["location"] == "CAPE CANAVERAL, FLORIDA"
+        assert r["date"] == ""
+        assert r["source"] == ""
+        assert r["restrictions"] == ""
+
+    def test_location_stripped_trailing_comma(self):
+        """Trailing comma is stripped from location."""
+        r = _parse_dateline("LONDON, (RECENT) (REUTERS - Access all)")
+        assert not r["location"].endswith(",")

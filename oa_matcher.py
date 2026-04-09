@@ -422,6 +422,11 @@ class OAMatcher:
             e["entry_number"]: e["description"] for e in shotlist_entries
         }
 
+        # Build full entry lookup (entry_number -> entry dict)
+        full_entry_lookup: dict[int, dict] = {
+            e["entry_number"]: e for e in shotlist_entries
+        }
+
         # Merge match data into shots list
         for shot in shots:
             idx = shot["shot_index"]
@@ -429,9 +434,23 @@ class OAMatcher:
             match = next((m for m in matches if m.get("shot_index") == idx), {})
             shot["matched_entry"] = match.get("matched_entry")
             _entry_num = match.get("matched_entry")
-            shot["matched_description"] = entry_lookup.get(_entry_num, "") if _entry_num is not None else ""
+            matched_entry_dict = full_entry_lookup.get(_entry_num) if _entry_num is not None else None
+            shot["matched_description"] = matched_entry_dict["description"] if matched_entry_dict else ""
             shot["confidence"] = match.get("confidence", "low")
             shot["notes"] = match.get("notes", "")
+            # Dateline fields — from the matched shotlist entry
+            if matched_entry_dict:
+                shot["location"] = matched_entry_dict.get("location", "")
+                shot["date"] = matched_entry_dict.get("date", "")
+                shot["source"] = matched_entry_dict.get("source", "")
+                shot["restrictions"] = matched_entry_dict.get("restrictions", "")
+                shot["location_block"] = matched_entry_dict.get("location_block", "")
+            else:
+                shot.setdefault("location", "")
+                shot.setdefault("date", "")
+                shot.setdefault("source", "")
+                shot.setdefault("restrictions", "")
+                shot.setdefault("location_block", "")
 
         return shots
 

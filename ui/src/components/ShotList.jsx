@@ -104,11 +104,19 @@ export default function ShotList({
         {groups.map((group, gi) => (
           <div key={gi}>
             {/* Dateline header */}
-            {group.block && (
-              <div className="sticky top-0 z-10 px-3 py-1 bg-blue-50 border-b border-blue-100 text-xs text-blue-800 font-medium">
-                {group.block}
-              </div>
-            )}
+            {group.block && (() => {
+              // Use the first shot in the group for structured dateline fields
+              const firstShot = group.items[0]?.shot || {}
+              const parts = [firstShot.location, firstShot.date, firstShot.source].filter(Boolean)
+              const label = parts.length ? parts.join(' · ') : group.block
+              const restrictions = firstShot.restrictions
+              return (
+                <div className="sticky top-0 z-10 px-3 py-1.5 bg-blue-50 border-b border-blue-100">
+                  <div className="text-xs text-blue-800 font-medium">{label}</div>
+                  {restrictions && <div className="text-xs text-blue-600 opacity-80">{restrictions}</div>}
+                </div>
+              )
+            })()}
 
             {/* Shots in group */}
             {group.items.map(({ shot, idx }) => {
