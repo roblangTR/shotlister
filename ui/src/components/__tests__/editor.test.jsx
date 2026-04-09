@@ -399,4 +399,30 @@ describe('EditorPane', () => {
     fireEvent.click(screen.getByText('Merge'))
     expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
   })
+
+  it('Merge selected via checkboxes opens description-picker modal', () => {
+    render(<EditorPane {...defaultProps} />)
+    // Check shots 0 and 1 via checkboxes
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0])
+    fireEvent.click(checkboxes[1])
+    // Click "Merge selected" in the bulk toolbar
+    fireEvent.click(screen.getByText('Merge selected'))
+    // Modal heading should appear
+    expect(screen.getByRole('heading', { name: /Merge 2 shots/ })).toBeInTheDocument()
+    // Both descriptions appear in the modal AND in the shot list panel — use getAllByText
+    expect(screen.getAllByText('VARIOUS OF ARTEMIS I').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('VARIOUS OF MOON SURFACE').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('confirming merge modal reduces shot count by 1', () => {
+    render(<EditorPane {...defaultProps} />)
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0])
+    fireEvent.click(checkboxes[1])
+    fireEvent.click(screen.getByText('Merge selected'))
+    // Confirm with the default first option selected
+    fireEvent.click(screen.getByText('Merge with this description'))
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
+  })
 })
