@@ -183,6 +183,7 @@ describe('ShotList', () => {
     reviewed: 1,
     onSelect: vi.fn(),
     onToggleSel: vi.fn(),
+    onSetSelIds: vi.fn(),
     onBulkRev: vi.fn(),
     onBulkMerge: vi.fn(),
     onClearSel: vi.fn(),

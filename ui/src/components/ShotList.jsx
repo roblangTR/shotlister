@@ -2,7 +2,11 @@
  * ShotList — right panel of the editor.
  * Displays shots grouped by dateline, with thumbnails, confidence badges,
  * review status, checkboxes, and a progress bar.
+ *
+ * Alt+drag to range-select shots: hold Alt, click and drag down (or up)
+ * to select a contiguous run without touching individual checkboxes.
  */
+import { useState } from 'react'
 
 const CONF = {
   high:   'bg-green-100 text-green-800 border border-green-200',
@@ -12,8 +16,35 @@ const CONF = {
 
 export default function ShotList({
   shots, selIdx, shotRefs, selIds, reviewed,
-  onSelect, onToggleSel, onBulkRev, onBulkMerge, onClearSel, onHelp,
+  onSelect, onToggleSel, onSetSelIds, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
+  // ---- Alt+drag range selection ----
+  const [dragStart, setDragStart] = useState(null)
+  const isDragging = dragStart !== null
+
+  function handleRowMouseDown(e, shotIndex) {
+    if (!e.altKey) return
+    e.preventDefault() // prevent text selection
+    setDragStart(shotIndex)
+    // Start with just this shot selected
+    onSetSelIds(new Set([shotIndex]))
+  }
+
+  function handleRowMouseEnter(shotIndex) {
+    if (!isDragging) return
+    // Replace selection atomically with the current drag range
+    const lo = Math.min(dragStart, shotIndex)
+    const hi = Math.max(dragStart, shotIndex)
+    const rangeIds = new Set(
+      shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index)
+    )
+    onSetSelIds(rangeIds)
+  }
+
+  function handleMouseUp() {
+    setDragStart(null)
+  }
+
   // Group shots by location_block
   const groups = []
   let cur = null
@@ -58,8 +89,8 @@ export default function ShotList({
         <button onClick={onHelp} className="text-xs text-gray-400 hover:text-gray-600 ml-auto" title="F1 — keyboard shortcuts">?</button>
       </div>
 
-      {/* Shot rows */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Shot rows — Alt+drag to range-select */}
+      <div className="flex-1 overflow-y-auto" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
         {groups.map((group, gi) => (
           <div key={gi}>
             {/* Dateline header */}
@@ -79,10 +110,12 @@ export default function ShotList({
                 <div
                   key={shot.shot_index}
                   ref={el => { shotRefs.current[shot.shot_index] = el }}
-                  onClick={() => onSelect(idx)}
-                  className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-gray-100 transition-colors ${
+                  onClick={() => !isDragging && onSelect(idx)}
+                  onMouseDown={e => handleRowMouseDown(e, shot.shot_index)}
+                  onMouseEnter={() => handleRowMouseEnter(shot.shot_index)}
+                  className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-gray-100 transition-colors select-none ${
                     isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50'
-                  } ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''}`}
+                  } ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''} ${isDragging ? 'cursor-crosshair' : ''}`}
                 >
                   {/* Checkbox */}
                   <input

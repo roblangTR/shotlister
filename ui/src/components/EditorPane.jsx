@@ -335,7 +335,7 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
       <ShotList
         shots={shots} selIdx={selIdx} shotRefs={shotRefs}
         selIds={selIds} reviewed={reviewed}
-        onSelect={setSel} onToggleSel={togSel}
+        onSelect={setSel} onToggleSel={togSel} onSetSelIds={setSelIds}
         onBulkRev={bulkRev} onBulkMerge={bulkMerge} onClearSel={clrSel}
         onHelp={()=>setHelp(true)}
       />
