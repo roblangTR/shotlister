@@ -18,31 +18,49 @@ export default function ShotList({
   shots, selIdx, shotRefs, selIds, reviewed,
   onSelect, onToggleSel, onSetSelIds, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
-  // ---- Alt+drag range selection ----
-  const [dragStart, setDragStart] = useState(null)
-  const isDragging = dragStart !== null
+  // ---- Option (Alt) range selection ----
+  // First ⌥+click sets the anchor. Second ⌥+click selects the full range.
+  // ⌥+drag also works: hover over shots to extend the range live.
+  const [anchor, setAnchor] = useState(null)   // shot_index of anchor
+  const [dragging, setDragging] = useState(false)
+
+  function handleRowClick(e, shotIndex, idx) {
+    if (!e.altKey) { onSelect(idx); return }
+    e.preventDefault()
+    if (anchor === null) {
+      // First ⌥+click — set anchor, select just this shot
+      setAnchor(shotIndex)
+      onSetSelIds(new Set([shotIndex]))
+    } else {
+      // Second ⌥+click — extend selection from anchor to here
+      const lo = Math.min(anchor, shotIndex)
+      const hi = Math.max(anchor, shotIndex)
+      const range = new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index))
+      onSetSelIds(range)
+      setAnchor(null) // reset anchor after completing the range
+    }
+  }
 
   function handleRowMouseDown(e, shotIndex) {
     if (!e.altKey) return
-    e.preventDefault() // prevent text selection
-    setDragStart(shotIndex)
-    // Start with just this shot selected
-    onSetSelIds(new Set([shotIndex]))
+    e.preventDefault()
+    setDragging(true)
+    if (anchor === null) {
+      setAnchor(shotIndex)
+      onSetSelIds(new Set([shotIndex]))
+    }
   }
 
   function handleRowMouseEnter(shotIndex) {
-    if (!isDragging) return
-    // Replace selection atomically with the current drag range
-    const lo = Math.min(dragStart, shotIndex)
-    const hi = Math.max(dragStart, shotIndex)
-    const rangeIds = new Set(
-      shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index)
-    )
-    onSetSelIds(rangeIds)
+    if (!dragging || anchor === null) return
+    const lo = Math.min(anchor, shotIndex)
+    const hi = Math.max(anchor, shotIndex)
+    const range = new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index))
+    onSetSelIds(range)
   }
 
   function handleMouseUp() {
-    setDragStart(null)
+    if (dragging) { setDragging(false); setAnchor(null) }
   }
 
   // Group shots by location_block
@@ -110,12 +128,12 @@ export default function ShotList({
                 <div
                   key={shot.shot_index}
                   ref={el => { shotRefs.current[shot.shot_index] = el }}
-                  onClick={() => !isDragging && onSelect(idx)}
+                  onClick={e => handleRowClick(e, shot.shot_index, idx)}
                   onMouseDown={e => handleRowMouseDown(e, shot.shot_index)}
                   onMouseEnter={() => handleRowMouseEnter(shot.shot_index)}
                   className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-gray-100 transition-colors select-none ${
                     isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50'
-                  } ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''} ${isDragging ? 'cursor-crosshair' : ''}`}
+                  } ${isChecked && anchor !== null ? 'bg-purple-50' : ''} ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''} ${dragging ? 'cursor-crosshair' : ''}`}
                 >
                   {/* Checkbox */}
                   <input
