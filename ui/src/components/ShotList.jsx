@@ -19,48 +19,33 @@ export default function ShotList({
   onSelect, onToggleSel, onSetSelIds, onBulkRev, onBulkMerge, onClearSel, onHelp,
 }) {
   // ---- Option (Alt) range selection ----
-  // ⌥+click first shot → sets anchor (shown in purple).
-  // ⌥+click any other shot → selects the full range from anchor to here.
-  // Anchor is stored in a ref so onMouseDown/onClick don't race.
-  const anchorRef = useState(null)          // [anchorVal, setAnchor]
-  const anchor = anchorRef[0]
-  const setAnchor = anchorRef[1]
-  const isDragging = useState(false)        // [bool, setter]
-  const dragging = isDragging[0]
-  const setDragging = isDragging[1]
+  // ⌥+click first shot  → sets anchor (purple tint on checked rows).
+  // ⌥+click second shot → fills the range, clears anchor.
+  const [anchor, setAnchor] = useState(null)
 
-  function applyRange(fromIdx, toIdx) {
-    const lo = Math.min(fromIdx, toIdx)
-    const hi = Math.max(fromIdx, toIdx)
+  function applyRange(from, to) {
+    const lo = Math.min(from, to)
+    const hi = Math.max(from, to)
     onSetSelIds(new Set(shots.filter(s => s.shot_index >= lo && s.shot_index <= hi).map(s => s.shot_index)))
   }
 
-  function handleRowClick(e, shotIndex, idx) {
-    if (!e.altKey) { onSelect(idx); return }
-    e.preventDefault()
+  function handleRowClick(e, shotIndex, listIdx) {
+    if (!e.altKey) {
+      // plain click — navigate to shot
+      setAnchor(null)
+      onSelect(listIdx)
+      return
+    }
+    // ⌥+click
     if (anchor === null) {
+      // first click — set anchor
       setAnchor(shotIndex)
       onSetSelIds(new Set([shotIndex]))
     } else {
+      // second click — extend to range and finish
       applyRange(anchor, shotIndex)
       setAnchor(null)
     }
-  }
-
-  // onMouseDown only starts the drag — does NOT set anchor (onClick handles that)
-  function handleRowMouseDown(e) {
-    if (!e.altKey) return
-    e.preventDefault()
-    setDragging(true)
-  }
-
-  function handleRowMouseEnter(shotIndex) {
-    if (!dragging || anchor === null) return
-    applyRange(anchor, shotIndex)
-  }
-
-  function handleMouseUp() {
-    if (dragging) { setDragging(false) }
   }
 
   // Group shots by location_block
@@ -107,8 +92,8 @@ export default function ShotList({
         <button onClick={onHelp} className="text-xs text-gray-400 hover:text-gray-600 ml-auto" title="F1 — keyboard shortcuts">?</button>
       </div>
 
-      {/* Shot rows — Alt+drag to range-select */}
-      <div className="flex-1 overflow-y-auto" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+      {/* Shot rows — ⌥+click to set anchor, ⌥+click again to extend range */}
+      <div className="flex-1 overflow-y-auto">
         {groups.map((group, gi) => (
           <div key={gi}>
             {/* Dateline header */}
@@ -129,11 +114,9 @@ export default function ShotList({
                   key={shot.shot_index}
                   ref={el => { shotRefs.current[shot.shot_index] = el }}
                   onClick={e => handleRowClick(e, shot.shot_index, idx)}
-                  onMouseDown={e => handleRowMouseDown(e, shot.shot_index)}
-                  onMouseEnter={() => handleRowMouseEnter(shot.shot_index)}
                   className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-gray-100 transition-colors select-none ${
                     isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50'
-                  } ${isChecked && anchor !== null ? 'bg-purple-50' : ''} ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''} ${dragging ? 'cursor-crosshair' : ''}`}
+                  } ${shot.shot_index === anchor ? 'ring-2 ring-purple-400 ring-inset' : ''} ${shot.is_white_flash ? 'bg-gray-50 opacity-80' : ''}`}
                 >
                   {/* Checkbox */}
                   <input
