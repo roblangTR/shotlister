@@ -102,6 +102,9 @@ def frames_to_timecode(frame_num: int, fps: float) -> str:
     """
     Convert a frame number to a HH:MM:SS:FF timecode string.
 
+    Uses integer modulo on the rounded fps value so ff can never equal fps,
+    avoiding the float-rounding edge case without a clamp guard.
+
     Args:
         frame_num: Zero-based frame number.
         fps: Frames per second (e.g. 25.0).
@@ -109,15 +112,13 @@ def frames_to_timecode(frame_num: int, fps: float) -> str:
     Returns:
         Timecode string in HH:MM:SS:FF format.
     """
-    total_seconds = frame_num / fps
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = int(total_seconds % 60)
-    frames = int(round((total_seconds - int(total_seconds)) * fps))
-    # Guard against rounding frames up to fps value
-    if frames >= int(fps):
-        frames = int(fps) - 1
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
+    fps_int = round(fps)
+    ff = frame_num % fps_int
+    total_secs = frame_num // fps_int
+    hh = total_secs // 3600
+    mm = (total_secs % 3600) // 60
+    ss = total_secs % 60
+    return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
 
 def detect_scenes(
@@ -174,24 +175,27 @@ def detect_scenes(
     except Exception as exc:
         raise ValueError(f"PySceneDetect could not open video '{path}': {exc}") from exc
 
-    sm = SceneManager()
+    try:
+        sm = SceneManager()
 
-    if detector == "adaptive":
-        sm.add_detector(AdaptiveDetector(
-            adaptive_threshold=threshold,
-            min_scene_len=min_scene_len,
-            luma_only=luma_only,
-        ))
-    else:
-        sm.add_detector(ContentDetector(
-            threshold=threshold,
-            min_scene_len=min_scene_len,
-            luma_only=luma_only,
-        ))
+        if detector == "adaptive":
+            sm.add_detector(AdaptiveDetector(
+                adaptive_threshold=threshold,
+                min_scene_len=min_scene_len,
+                luma_only=luma_only,
+            ))
+        else:
+            sm.add_detector(ContentDetector(
+                threshold=threshold,
+                min_scene_len=min_scene_len,
+                luma_only=luma_only,
+            ))
 
-    sm.detect_scenes(video)
-    scene_list = sm.get_scene_list()
-    frame_numbers = [s[0].get_frames() for s in scene_list]
+        sm.detect_scenes(video)
+        scene_list = sm.get_scene_list()
+        frame_numbers = [s[0].get_frames() for s in scene_list]
+    finally:
+        video.capture.release()
 
     # Post-processing: drop any boundary within merge_frames of the previous one.
     # Flash frames produce two boundaries (before + after the flash) — merging

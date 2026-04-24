@@ -90,13 +90,20 @@ def frame_tc_diff(tc_a, tc_b):
 
 
 def frames_to_tc(total_frames, fps=25.0):
-    """Convert total frame count back to HH:MM:SS:FF string."""
-    total_seconds = total_frames / fps
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = int(total_seconds % 60)
-    frames = int(round((total_seconds - int(total_seconds)) * fps))
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
+    """Convert total frame count back to HH:MM:SS:FF string.
+
+    Uses integer modulo arithmetic to avoid float-rounding edge cases where
+    ``round((frac_secs * fps))`` could equal ``fps`` (e.g. 0.9999... * 25 = 25),
+    which would produce an invalid timecode such as 00:00:00:25 at 25 fps.
+    """
+    fps_int = round(fps)
+    total_frames_int = int(total_frames)
+    ff = total_frames_int % fps_int
+    total_secs = total_frames_int // fps_int
+    hours = total_secs // 3600
+    minutes = (total_secs % 3600) // 60
+    seconds = total_secs % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{ff:02d}"
 
 
 def categorize_accuracy(frame_diff):

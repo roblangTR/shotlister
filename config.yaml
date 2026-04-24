@@ -38,7 +38,8 @@ system_prompt: |
   - Entries prefixed [SOUNDBITE] represent interview clips — match when a speaker appears on camera talking
   - Location headers (ALL-CAPS lines without a number) are context, not matchable entries
   - The first shot in the video is often a title card or slate with no matching entry — use null
-
+  - Entries marked FILM TRAILER or FILM CLIP often have multiple shots under one description — several consecutive video cuts likely match the same entry
+  
   OUTPUT FORMAT:
   You always respond with ONLY a valid JSON array — no preamble, no explanation, no markdown fences. One object per detected shot cut, in shot order.
 

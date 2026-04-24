@@ -426,4 +426,167 @@ describe('EditorPane', () => {
     fireEvent.click(screen.getByText('Merge with this description'))
     expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
   })
+
+  // ---------------------------------------------------------------------------
+  // Split tests
+  // ---------------------------------------------------------------------------
+
+  it('clicking Split with playhead at shot start shows a toast (no split)', () => {
+    // jsdom sets video.currentTime = 0, shot[0].seconds = 0 — split guard fires
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getByText('Split'))
+    // Shot count unchanged — guard prevented split
+    expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument()
+  })
+
+  it('Split keyboard shortcut S does not crash when playhead is at start', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.keyDown(window, { key: 's' })
+    expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument()
+  })
+
+  it('Split with playhead inside shot range creates an extra shot', () => {
+    render(<EditorPane {...defaultProps} />)
+    const video = document.querySelector('video')
+    // Set currentTime to 3s — inside shot[0] which starts at 0s
+    Object.defineProperty(video, 'currentTime', { writable: true, value: 3 })
+    fireEvent.click(screen.getByText('Split'))
+    // selIdx advances to 1 after split, so counter shows "2 / 4"
+    expect(screen.getByText(/2 \/ 4/)).toBeInTheDocument()
+  })
+
+  it('after split, new shot gets the playhead timecode as its IN', () => {
+    render(<EditorPane {...defaultProps} />)
+    const video = document.querySelector('video')
+    Object.defineProperty(video, 'currentTime', { writable: true, value: 2 })
+    fireEvent.click(screen.getByText('Split'))
+    // After split selIdx advances to 1 (the new half) — already selected, no Next needed
+    const inputs = screen.getAllByPlaceholderText('00:00:00:00')
+    // IN of new shot should be 00:00:02:00 (2s at 25fps)
+    expect(inputs[0].value).toBe('00:00:02:00')
+  })
+
+  // ---------------------------------------------------------------------------
+  // White flash tests
+  // ---------------------------------------------------------------------------
+
+  it('Add White Flash button in modal inserts a WF shot', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getAllByTitle('W')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Add White Flash' }))
+    // selIdx advances to the new WF shot at index 1, so counter shows "2 / 4"
+    expect(screen.getByText(/2 \/ 4/)).toBeInTheDocument()
+  })
+
+  it('WF shot description shows frame count', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getAllByTitle('W')[0])
+    // wfF defaults to 2; after insert selIdx = 1 (the WF shot) — already selected
+    fireEvent.click(screen.getByRole('button', { name: 'Add White Flash' }))
+    expect(screen.getByDisplayValue(/White flash \(2f\)/)).toBeInTheDocument()
+  })
+
+  it('changing WF frame count updates the description accordingly', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getAllByTitle('W')[0])
+    const frameInput = screen.getByRole('spinbutton')
+    fireEvent.change(frameInput, { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add White Flash' }))
+    // After insert selIdx = 1 (the WF shot) — already selected
+    expect(screen.getByDisplayValue(/White flash \(5f\)/)).toBeInTheDocument()
+  })
+
+  it('WF keyboard shortcut W opens the modal', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.keyDown(window, { key: 'w' })
+    expect(screen.getByRole('heading', { name: 'Add White Flash' })).toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // Dateline display tests
+  // ---------------------------------------------------------------------------
+
+  it('shows Dateline section when shot has location/date/source', () => {
+    const shotsWithDateline = [
+      { ...MOCK_SHOTS[0], location: 'CAPE CANAVERAL', date: 'NOVEMBER 16, 2022',
+        source: 'NASA', restrictions: 'Editorial use only',
+        restrictions_broadcast: 'Editorial use only', restrictions_digital: 'Editorial use only' },
+      ...MOCK_SHOTS.slice(1),
+    ]
+    render(<EditorPane {...defaultProps} results={shotsWithDateline} />)
+    expect(screen.getByText('Dateline')).toBeInTheDocument()
+    expect(screen.getByText('CAPE CANAVERAL')).toBeInTheDocument()
+    expect(screen.getByText('NOVEMBER 16, 2022')).toBeInTheDocument()
+    expect(screen.getByText('NASA')).toBeInTheDocument()
+  })
+
+  it('shows split Broadcast/Digital restrictions when both present', () => {
+    const shotsWithSplit = [
+      { ...MOCK_SHOTS[0], location: 'LONDON', date: 'RECENT',
+        source: 'REUTERS', restrictions: 'Broadcast: Access all. Digital: No resales',
+        restrictions_broadcast: 'Access all', restrictions_digital: 'No resales' },
+      ...MOCK_SHOTS.slice(1),
+    ]
+    render(<EditorPane {...defaultProps} results={shotsWithSplit} />)
+    expect(screen.getByText('Broadcast')).toBeInTheDocument()
+    expect(screen.getByText('Digital')).toBeInTheDocument()
+    expect(screen.getByText('Access all')).toBeInTheDocument()
+    expect(screen.getByText('No resales')).toBeInTheDocument()
+  })
+
+  it('shows single Restrictions label when no keyword split', () => {
+    const shotsWithRestrictions = [
+      { ...MOCK_SHOTS[0], location: 'LONDON', date: 'RECENT',
+        source: 'REUTERS', restrictions: 'Access all',
+        restrictions_broadcast: 'Access all', restrictions_digital: 'Access all' },
+      ...MOCK_SHOTS.slice(1),
+    ]
+    render(<EditorPane {...defaultProps} results={shotsWithRestrictions} />)
+    // restrictions_broadcast and _digital are both set, so "Broadcast" label appears
+    expect(screen.getByText('Broadcast')).toBeInTheDocument()
+  })
+
+  it('does not show Dateline section when shot has no dateline fields', () => {
+    render(<EditorPane {...defaultProps} />)
+    // MOCK_SHOTS have no location/date/source — section should be absent
+    expect(screen.queryByText('Dateline')).not.toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // Undo/Redo keyboard shortcuts
+  // ---------------------------------------------------------------------------
+
+  it('Ctrl+Z undoes a merge', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getByText('Merge'))
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
+    expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument()
+  })
+
+  it('Ctrl+Y redoes after undo', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.click(screen.getByText('Merge'))
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
+    expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'y', ctrlKey: true })
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // Delete shot
+  // ---------------------------------------------------------------------------
+
+  it('Delete key removes the current shot', () => {
+    render(<EditorPane {...defaultProps} />)
+    fireEvent.keyDown(window, { key: 'Delete' })
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument()
+  })
+
+  it('Delete does not remove the last shot', () => {
+    const oneShot = [MOCK_SHOTS[0]]
+    render(<EditorPane {...defaultProps} results={oneShot} />)
+    fireEvent.keyDown(window, { key: 'Delete' })
+    expect(screen.getByText(/1 \/ 1/)).toBeInTheDocument()
+  })
 })

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import './index.css'
 import VideoUpload from './components/VideoUpload'
 import ShotlistInput from './components/ShotlistInput'
 import EditorPane from './components/EditorPane'

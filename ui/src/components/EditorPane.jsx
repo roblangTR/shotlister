@@ -37,9 +37,13 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
   const [toast, setToast]   = useState(null)
   const [selIds, setSelIds] = useState(new Set())
   const [hist, dispatch]    = useReducer(reduce, { past:[], present: results||[], future:[] })
+  const didInit = useRef(false)
 
   useEffect(() => { if (results?.length) dispatch({ type:'INIT', shots:results }) }, []) // eslint-disable-line
-  useEffect(() => { if (hist.present) onResultsChange(hist.present) }, [hist.present]) // eslint-disable-line
+  useEffect(() => {
+    if (!didInit.current) { didInit.current = true; return }
+    if (hist.present) onResultsChange(hist.present)
+  }, [hist.present]) // eslint-disable-line
 
   const shots = hist.present || []
   const sel   = shots[selIdx]
@@ -166,7 +170,7 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
       ...shots.slice(selIdx + 1),
     ].map((s, i) => ({ ...s, shot_index: i }))
     upd(next, `Split shot ${selIdx + 1} at ${splitTC}`)
-    setSelIdx(selIdx + 1)
+    setSel(selIdx + 1)
     toast_(`Shot split at ${splitTC}`)
   }
 

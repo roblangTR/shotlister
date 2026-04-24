@@ -349,9 +349,12 @@ class TestParseDataline:
         assert r["restrictions"] == "Access all"
 
     def test_empty_string(self):
-        """Empty input returns all-empty dict."""
+        """Empty input returns all-empty dict (all 6 fields)."""
         r = _parse_dateline("")
-        assert r == {"location": "", "date": "", "source": "", "restrictions": ""}
+        assert r == {
+            "location": "", "date": "", "source": "", "restrictions": "",
+            "restrictions_broadcast": "", "restrictions_digital": "",
+        }
 
     def test_location_only(self):
         """Line with only a location name and no parens."""
@@ -365,3 +368,40 @@ class TestParseDataline:
         """Trailing comma is stripped from location."""
         r = _parse_dateline("LONDON, (RECENT) (REUTERS - Access all)")
         assert not r["location"].endswith(",")
+
+    def test_restrictions_broadcast_digital_split(self):
+        """Restrictions with both Broadcast: and Digital: are split into separate fields."""
+        block = "LONDON (RECENT) (REUTERS - Broadcast: Access all. Digital: No resales)"
+        r = _parse_dateline(block)
+        assert "Access all" in r["restrictions_broadcast"]
+        assert "No resales" in r["restrictions_digital"]
+
+    def test_restrictions_broadcast_only(self):
+        """Restrictions with only Broadcast: key fills broadcast field, digital is empty."""
+        block = "LONDON (RECENT) (REUTERS - Broadcast: Access all)"
+        r = _parse_dateline(block)
+        assert "Access all" in r["restrictions_broadcast"]
+        assert r["restrictions_digital"] == ""
+
+    def test_restrictions_digital_only(self):
+        """Restrictions with only Digital: key fills digital field, broadcast is empty."""
+        block = "LONDON (RECENT) (REUTERS - Digital: No resales)"
+        r = _parse_dateline(block)
+        assert r["restrictions_broadcast"] == ""
+        assert "No resales" in r["restrictions_digital"]
+
+    def test_restrictions_no_keyword_both_fields_filled(self):
+        """Restrictions without Broadcast:/Digital: keywords fill both fields identically."""
+        block = "LONDON (RECENT) (REUTERS - Access all)"
+        r = _parse_dateline(block)
+        assert r["restrictions_broadcast"] == "Access all"
+        assert r["restrictions_digital"] == "Access all"
+
+    def test_parse_shotlist_includes_broadcast_digital(self):
+        """parse_shotlist entries include restrictions_broadcast and restrictions_digital."""
+        text = "LONDON, UK (RECENT) (REUTERS - Access all)\n1. VARIOUS OF LONDON\n"
+        entries = parse_shotlist(text)
+        assert "restrictions_broadcast" in entries[0]
+        assert "restrictions_digital" in entries[0]
+        assert entries[0]["restrictions_broadcast"] == "Access all"
+        assert entries[0]["restrictions_digital"] == "Access all"

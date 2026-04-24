@@ -128,6 +128,8 @@ def parse_shotlist(text: str) -> list[dict]:
             "date": dateline["date"],
             "source": dateline["source"],
             "restrictions": dateline["restrictions"],
+            "restrictions_broadcast": dateline["restrictions_broadcast"],
+            "restrictions_digital": dateline["restrictions_digital"],
             "raw": raw,
         })
 
@@ -175,10 +177,14 @@ def _parse_dateline(location_block: str) -> dict[str, str]:
       WASHINGTON D.C. (RECENT - SEPTEMBER 12, 2025) (REUTERS - Access all)
 
     Returns:
-        {"location": str, "date": str, "source": str, "restrictions": str}
+        {"location": str, "date": str, "source": str, "restrictions": str,
+         "restrictions_broadcast": str, "restrictions_digital": str}
     """
     if not location_block:
-        return {"location": "", "date": "", "source": "", "restrictions": ""}
+        return {
+            "location": "", "date": "", "source": "", "restrictions": "",
+            "restrictions_broadcast": "", "restrictions_digital": "",
+        }
 
     # 1. Location = text before the first parenthesis (trimmed)
     location = location_block.split("(")[0].strip().rstrip(",").strip()

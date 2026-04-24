@@ -70,8 +70,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_SERVER_CFG.get("cors_origins", ["http://localhost:5173", "http://localhost:3000"]),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # --- In-memory job store ---
@@ -166,6 +166,8 @@ def detect(req: DetectRequest) -> dict:
         "shots": shots,
         "results": None,
         "thumbnails_dir": None,
+        "total_frames": total_frames,
+        "fps": fps,
     }
 
     shots = _fill_out_timecodes(shots, total_frames, fps)
@@ -215,6 +217,11 @@ def match(req: MatchRequest) -> dict:
             logger.exception("Scene detection failed: %s", exc)
             raise HTTPException(status_code=502, detail=f"Scene detection error: {exc}")
 
+        try:
+            total_frames_new, fps_new = get_video_info(req.video_path)
+        except Exception:
+            total_frames_new, fps_new = 0, 25.0
+
         job_id = str(uuid.uuid4())
         _jobs[job_id] = {
             "created_at": time.time(),
@@ -222,6 +229,8 @@ def match(req: MatchRequest) -> dict:
             "shots": shots,
             "results": None,
             "thumbnails_dir": None,
+            "total_frames": total_frames_new,
+            "fps": fps_new,
         }
         job = _jobs[job_id]
 
@@ -253,8 +262,7 @@ def match(req: MatchRequest) -> dict:
         raise HTTPException(status_code=502, detail=f"Matching error: {exc}")
 
     # Fill OUT timecodes (next shot's IN; last shot = duration)
-    total_frames_match, fps_match = get_video_info(req.video_path)
-    results = _fill_out_timecodes(results, total_frames_match, fps_match)
+    results = _fill_out_timecodes(results, job.get("total_frames", 0), job.get("fps", 25.0))
 
     job["results"] = results
     job["prompt"] = getattr(matcher, "last_prompt", "")
@@ -369,15 +377,22 @@ def stream_video(path: str, request: Request) -> Response:
     """
     Stream a local video file to the browser with HTTP range support.
 
-    The UI passes the local file path as a query parameter. Range requests are
-    required for the HTML5 video player's seek bar to work.
+    DESIGN NOTE: This endpoint intentionally streams local filesystem paths.
+    It is designed for single-user local desktop use on Reuters infrastructure
+    where the backend and browser run on the same machine. Do NOT expose this
+    endpoint on a shared or public network without adding authentication.
+
+    Range requests are required for the HTML5 video player's seek bar to work.
     """
-    # Guard against path traversal / non-video files
-    ext = os.path.splitext(path)[1].lower()
+    # Resolve the path to prevent any symlink or ../ traversal tricks.
+    resolved = os.path.realpath(path)
+    ext = os.path.splitext(resolved)[1].lower()
     if ext not in _ALLOWED_VIDEO_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext!r}")
-    if not os.path.isfile(path):
+    if not os.path.isfile(resolved):
         raise HTTPException(status_code=404, detail=f"Video file not found: {path}")
+    # Rebind path to the resolved form for all subsequent use
+    path = resolved
 
     file_size = os.path.getsize(path)
     range_header = request.headers.get("range")
