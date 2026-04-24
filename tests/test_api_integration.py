@@ -169,8 +169,10 @@ def pipeline_client():
             matcher_instance.match.side_effect = mock_matcher_match
             MockMatcher.return_value = matcher_instance
 
-            from api import app, _jobs
+            from api import app, _jobs, limiter
             _jobs.clear()
+            # Reset rate-limiter storage so per-IP counters don't bleed between tests
+            limiter.reset()
 
             with TestClient(app) as client:
                 yield client, _jobs

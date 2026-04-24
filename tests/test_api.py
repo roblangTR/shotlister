@@ -59,8 +59,10 @@ def client():
         matcher_instance.match.return_value = [dict(r) for r in MOCK_RESULTS]
         MockMatcher.return_value = matcher_instance
 
-        from api import app, _jobs
+        from api import app, _jobs, limiter
         _jobs.clear()
+        # Reset rate-limiter storage so per-IP counters don't bleed between tests
+        limiter.reset()
 
         with TestClient(app) as c:
             yield c, _jobs
@@ -392,6 +394,67 @@ class TestExportEndpoint:
         disp = resp.headers.get("content-disposition", "")
         assert job_id in disp
         assert ".csv" in disp
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting
+# ---------------------------------------------------------------------------
+
+class TestRateLimiting:
+    """Verify that /detect and /match enforce per-IP rate limits."""
+
+    def _fresh_client(self):
+        """Return a new TestClient with a reset limiter (avoids fixture-level reset)."""
+        from api import app, _jobs, limiter
+        _jobs.clear()
+        limiter.reset()
+        return TestClient(app)
+
+    def test_detect_rate_limit_returns_429_after_limit(self, client):
+        """POST /detect must return 429 once the per-minute limit is exceeded."""
+        c, _ = client
+        from api import _CFG
+        limit = int(_CFG.get("rate_limits", {}).get("detect", "10/minute").split("/")[0])
+        # Exhaust the limit
+        for _ in range(limit):
+            resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+            assert resp.status_code == 200, f"Expected 200 before limit, got {resp.status_code}"
+        # The next request must be rate-limited
+        over = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        assert over.status_code == 429, f"Expected 429 after limit, got {over.status_code}"
+
+    def test_match_rate_limit_returns_429_after_limit(self, client):
+        """POST /match must return 429 once the per-minute limit is exceeded."""
+        c, _ = client
+        from api import _CFG, _jobs, limiter
+        limit = int(_CFG.get("rate_limits", {}).get("match", "5/minute").split("/")[0])
+
+        # Create a single detect job to reuse (avoids hitting /detect limit)
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        match_body = {
+            "job_id": job_id,
+            "video_path": "/fake/video.mp4",
+            "shotlist_text": SIMPLE_SHOTLIST,
+            "esso_token": "tok",
+            "workflow_id": "wf-uuid",
+        }
+
+        # Exhaust the match limit
+        for _ in range(limit):
+            resp = c.post("/match", json=match_body)
+            assert resp.status_code == 200, f"Expected 200 before limit, got {resp.status_code}"
+
+        # The next request must be rate-limited
+        over = c.post("/match", json=match_body)
+        assert over.status_code == 429, f"Expected 429 after limit, got {over.status_code}"
+
+    def test_rate_limit_resets_between_fixtures(self, client):
+        """The limiter is reset per-fixture; a fresh fixture should not be limited."""
+        c, _ = client
+        resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

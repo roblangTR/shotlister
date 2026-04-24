@@ -28,6 +28,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from scene_detector import detect_scenes, get_video_info
 from frame_extractor import extract_frames
@@ -61,10 +64,22 @@ with open(_CONFIG_PATH) as _f:
 _SERVER_CFG = _CFG.get("server", {})
 _DET_CFG = _CFG.get("detection", {})
 _JOBS_CFG = _CFG.get("jobs", {})
+_RATE_CFG = _CFG.get("rate_limits", {})
 JOB_TTL = _JOBS_CFG.get("ttl_seconds", 3600)
+
+# Rate limit strings read from config (fall back to safe defaults)
+_DETECT_LIMIT = _RATE_CFG.get("detect", "10/minute")
+_MATCH_LIMIT  = _RATE_CFG.get("match",  "5/minute")
+
+# --- Rate limiter ---
+limiter = Limiter(key_func=get_remote_address)
 
 # --- App ---
 app = FastAPI(title="Shotlist Timecoder", version="1.0.0")
+
+# Attach limiter state and 429 error handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -134,7 +149,8 @@ class MatchRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @app.post("/detect")
-def detect(req: DetectRequest) -> dict:
+@limiter.limit(_DETECT_LIMIT)
+def detect(request: Request, req: DetectRequest) -> dict:
     """
     Run scene detection on a video file.
 
@@ -186,7 +202,8 @@ def detect(req: DetectRequest) -> dict:
 
 
 @app.post("/match")
-def match(req: MatchRequest) -> dict:
+@limiter.limit(_MATCH_LIMIT)
+def match(request: Request, req: MatchRequest) -> dict:
     """
     Full pipeline: detect shots → extract frames → parse shotlist → match via Gemini.
 

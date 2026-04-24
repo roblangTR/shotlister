@@ -96,3 +96,9 @@ server:
 # Job store
 jobs:
   ttl_seconds: 3600
+
+# Rate limiting (slowapi, per-IP)
+# Use standard rate-limit strings: "N/second", "N/minute", "N/hour"
+rate_limits:
+  detect: "10/minute"
+  match: "5/minute"
