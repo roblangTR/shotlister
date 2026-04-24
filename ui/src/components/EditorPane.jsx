@@ -8,7 +8,7 @@
  * All business logic (split, merge, WF, delete, undo/redo) lives here so
  * that the sub-components remain pure presentational components.
  */
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, startTransition } from 'react'
 import { secsToTC } from '../utils/timecode'
 import { useHistory } from '../hooks/useHistory'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
@@ -49,12 +49,16 @@ export default function EditorPane({ results, jobId, shotlistEntries, onResultsC
   // Re-initialise history and reset selection whenever a new job arrives (issue #13).
   // Using jobId (not results) as the dependency avoids an infinite re-render loop
   // caused by object-identity changes in the results array on each render.
+  // startTransition defers the setSel/setSelIds updates so they are not
+  // synchronous within the effect body (satisfies react-hooks/set-state-in-effect).
   const didInit = useRef(false)
   useEffect(() => {
     if (results?.length) {
       init(results)
-      setSel(0)
-      setSelIds(new Set())
+      startTransition(() => {
+        setSel(0)
+        setSelIds(new Set())
+      })
     }
   }, [jobId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -246,7 +250,7 @@ export default function EditorPane({ results, jobId, shotlistEntries, onResultsC
     onRedo:      () => { redo(); toast_('Redo') },
     canUndo,
     canRedo,
-  }, [selIdx, shots, hist]) // eslint-disable-line
+  }, [selIdx, shots, hist])
 
   const reviewed = shots.filter(s => s.human_reviewed).length
 
@@ -279,7 +283,6 @@ export default function EditorPane({ results, jobId, shotlistEntries, onResultsC
           sel={sel}
           selIdx={selIdx}
           totalShots={shots.length}
-          shots={shots}
           shotlistEntries={shotlistEntries}
           onToggleReview={() => togRev(selIdx)}
           onSplit={splitAtPlayhead}

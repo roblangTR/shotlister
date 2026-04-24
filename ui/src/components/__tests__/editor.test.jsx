@@ -6,8 +6,7 @@
  * Interaction tests: review toggle, white flash modal, shot navigation.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { secsToTC } from '../../utils/timecode'
 import { historyReducer, MAX_HIST } from '../../utils/historyReducer'
 

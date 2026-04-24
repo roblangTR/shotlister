@@ -30,7 +30,7 @@ function loadCachedToken() {
     const { token, exp } = JSON.parse(raw)
     if (exp && Date.now() / 1000 < exp) return token
     localStorage.removeItem(ESSO_CACHE_KEY)
-  } catch (_err) {
+  } catch {
     // Parsing the cached token failed — treat as no cached token
   }
   return ''
