@@ -8,34 +8,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { secsToTC } from '../../utils/timecode'
+import { historyReducer, MAX_HIST } from '../../utils/historyReducer'
 
-// ---------------------------------------------------------------------------
-// Timecode helper — extracted for testability (mirrors EditorPane internals)
-// ---------------------------------------------------------------------------
-
-function secsToTC(s, fps = 25) {
-  const f = Math.round(s * fps)
-  const hh = Math.floor(f / (3600 * fps))
-  const mm = Math.floor((f % (3600 * fps)) / (60 * fps))
-  const ss = Math.floor((f % (60 * fps)) / fps)
-  const ff = f % fps
-  return [hh, mm, ss, ff].map(n => String(n).padStart(2, '0')).join(':')
-}
-
-// ---------------------------------------------------------------------------
-// History reducer — extracted for testability
-// ---------------------------------------------------------------------------
-
-const MAX_HIST = 50
-function reduce(state, action) {
-  switch (action.type) {
-    case 'INIT':   return { past: [], present: action.shots, future: [] }
-    case 'UPDATE': return { past: [...state.past, state.present].slice(-MAX_HIST), present: action.shots, future: [] }
-    case 'UNDO':   return state.past.length ? { past: state.past.slice(0,-1), present: state.past[state.past.length-1], future: [state.present,...state.future] } : state
-    case 'REDO':   return state.future.length ? { past: [...state.past,state.present], present: state.future[0], future: state.future.slice(1) } : state
-    default:       return state
-  }
-}
+// Local alias so existing test bodies that call reduce(...) keep working unchanged.
+const reduce = historyReducer
 
 // ---------------------------------------------------------------------------
 // Unit tests — secsToTC
