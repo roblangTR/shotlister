@@ -10,7 +10,6 @@
  * @param {object}   props.sel             - The currently selected shot object
  * @param {number}   props.selIdx          - Index of the selected shot
  * @param {number}   props.totalShots      - Total shot count
- * @param {any[]}    props.shots           - Full shots array
  * @param {any[]}    props.shotlistEntries - Parsed shotlist entries for the reassign dropdown
  * @param {Function} props.onToggleReview  - Toggle human_reviewed on current shot
  * @param {Function} props.onSplit         - Split at playhead
@@ -21,7 +20,7 @@
  * @param {Function} props.onReassign      - (entryNumber) => void — reassign matched entry
  */
 export default function ShotEditForm({
-  sel, selIdx, totalShots, shots, shotlistEntries,
+  sel, selIdx, totalShots, shotlistEntries,
   onToggleReview, onSplit, onMerge, onWF, onDelete,
   onFieldChange, onReassign,
 }) {

@@ -215,7 +215,18 @@ def match(request: Request, req: MatchRequest) -> dict:
     # --- Resolve or create job ---
     if req.job_id and req.job_id in _jobs:
         job = _jobs[req.job_id]
-        shots = list(job["shots"])  # copy so we can annotate without mutating the cached version
+        # Guard: reject if the caller supplies a different video than was detected (issue #14)
+        if job["video_path"] != req.video_path:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "video_path does not match the cached job "
+                    f"(expected {job['video_path']!r}). "
+                    "Omit job_id to re-detect with the new video."
+                ),
+            )
+        # Deep-copy so extract_frames cannot mutate the cached shot dicts (issue #18)
+        shots = [dict(s) for s in job["shots"]]
         job_id = req.job_id
     else:
         # Detect scenes fresh
@@ -252,9 +263,20 @@ def match(request: Request, req: MatchRequest) -> dict:
         job = _jobs[job_id]
 
     # --- Extract frames ---
+    # Clean up previous thumbnail dir for this job if it exists (issue #19)
+    old_thumb = job.get("thumbnails_dir")
+    if old_thumb and os.path.isdir(old_thumb):
+        shutil.rmtree(old_thumb, ignore_errors=True)
+
     thumb_dir = tempfile.mkdtemp(prefix=f"shotlist_{job_id}_")
     job["thumbnails_dir"] = thumb_dir
-    shots = extract_frames(req.video_path, shots, thumb_dir)
+    try:
+        shots = extract_frames(req.video_path, shots, thumb_dir)
+    except Exception as exc:
+        shutil.rmtree(thumb_dir, ignore_errors=True)
+        job["thumbnails_dir"] = None
+        logger.exception("Frame extraction failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"Frame extraction error: {exc}")
 
     # --- Parse shotlist ---
     try:
@@ -271,10 +293,15 @@ def match(request: Request, req: MatchRequest) -> dict:
     try:
         results = matcher.match(req.video_path, shots, entries)
     except RuntimeError as exc:
+        # On any OA failure clean up the newly created thumbnail dir (issue #19)
+        shutil.rmtree(thumb_dir, ignore_errors=True)
+        job["thumbnails_dir"] = None
         if "ESSO_TOKEN_EXPIRED" in str(exc):
             raise HTTPException(status_code=401, detail=str(exc))
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception as exc:
+        shutil.rmtree(thumb_dir, ignore_errors=True)
+        job["thumbnails_dir"] = None
         logger.exception("OA matching failed: %s", exc)
         raise HTTPException(status_code=502, detail=f"Matching error: {exc}")
 

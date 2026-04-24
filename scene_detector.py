@@ -51,7 +51,13 @@ def get_video_info(video_path: str) -> tuple[int, float]:
             info = json.loads(result.stdout)
             streams = info.get("streams", [])
             if streams:
-                s = streams[0]
+                # Filter for the first video stream — audio-first containers
+                # (MXF, some MP4/MTS) put an audio stream at index 0, which
+                # yields r_frame_rate = '0/0' and wrong timecodes (issue #20).
+                video_streams = [s for s in streams if s.get("codec_type") == "video"]
+                if not video_streams:
+                    raise ValueError(f"No video stream found in: {path}")
+                s = video_streams[0]
                 # r_frame_rate is a fraction string like "25/1" or "30000/1001"
                 r_frame_rate = s.get("r_frame_rate", "")
                 def _parse_rate(rate_str: str) -> float:

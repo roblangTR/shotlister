@@ -278,9 +278,12 @@ class TestUploadVideoErrorPaths:
             m.upload_video("/nonexistent/video.mp4")
 
     def test_upload_raises_on_401(self, tmp_path):
-        """Raises RuntimeError with ESSO_TOKEN_EXPIRED on HTTP 401."""
+        """Raises RuntimeError with ESSO_TOKEN_EXPIRED on HTTP 401.
+
+        _oa_request() uses requests.request (not requests.post), so the patch
+        target must be oa_matcher.requests.request (issue #15).
+        """
         from unittest.mock import patch, MagicMock
-        import requests
 
         video = tmp_path / "v.mp4"
         video.write_bytes(b"fake")
@@ -288,14 +291,19 @@ class TestUploadVideoErrorPaths:
         mock_resp = MagicMock()
         mock_resp.status_code = 401
         mock_resp.ok = False
+        mock_resp.text = "Unauthorized"
 
-        with patch("requests.post", return_value=mock_resp):
+        with patch("oa_matcher.requests.request", return_value=mock_resp):
             m = OAMatcher(esso_token="expired", workflow_id="wf")
             with pytest.raises(RuntimeError, match="ESSO_TOKEN_EXPIRED"):
                 m.upload_video(str(video))
 
     def test_upload_raises_on_403(self, tmp_path):
-        """Raises RuntimeError with ESSO_TOKEN_EXPIRED on HTTP 403."""
+        """Raises RuntimeError with ESSO_TOKEN_EXPIRED on HTTP 403.
+
+        _oa_request() uses requests.request (not requests.post), so the patch
+        target must be oa_matcher.requests.request (issue #15).
+        """
         from unittest.mock import patch, MagicMock
 
         video = tmp_path / "v.mp4"
@@ -304,8 +312,9 @@ class TestUploadVideoErrorPaths:
         mock_resp = MagicMock()
         mock_resp.status_code = 403
         mock_resp.ok = False
+        mock_resp.text = "Forbidden"
 
-        with patch("requests.post", return_value=mock_resp):
+        with patch("oa_matcher.requests.request", return_value=mock_resp):
             m = OAMatcher(esso_token="forbidden", workflow_id="wf")
             with pytest.raises(RuntimeError, match="ESSO_TOKEN_EXPIRED"):
                 m.upload_video(str(video))

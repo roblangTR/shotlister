@@ -38,7 +38,9 @@ export default function VideoUpload({ onDetected, compact }) {
       const resp = await fetch('/browse')
       const data = await resp.json()
       if (data.path) setVideoPath(data.path)
-    } catch {}
+    } catch (_err) {
+      // Browse request failed or was cancelled — leave video path unchanged
+    }
   }
 
   if (compact) {

@@ -1,6 +1,25 @@
 """
 Timecode conversion utilities for comparing frame-based timecodes.
-Supports 25fps and 29.97fps (drop frame) conversions.
+
+Supported frame rates
+---------------------
+* 25 fps — the standard Reuters broadcast rate. All arithmetic is exact.
+* 30 fps — exact integer arithmetic, no drift.
+
+NOT supported
+-------------
+* 29.97 fps drop-frame (DF) — the SMPTE DF formula (skip frame counts 0 and 1
+  at the start of each minute except every 10th minute) is NOT implemented.
+  If a 29.97 DF timecode is passed, the ``;`` separator is detected and
+  ``detect_framerate()`` returns 29.97, but ``frames_to_tc()`` /
+  ``tc_to_frames()`` round 29.97 to 30 and use simple integer division.
+  This produces timecodes that drift by ~2 frames/minute (~18 frames/hour),
+  which is the exact problem DF notation was designed to correct.
+
+  For Reuters editorial use all source videos are 25 fps so this limitation
+  has no practical impact.  If 29.97 DF support is required in the future,
+  adopt the ``timecode`` PyPI package (SMPTE-correct implementation).
+
 Adapted from ../structured shotlists/timecode_utils.py
 """
 import math
@@ -95,6 +114,12 @@ def frames_to_tc(total_frames, fps=25.0):
     Uses integer modulo arithmetic to avoid float-rounding edge cases where
     ``round((frac_secs * fps))`` could equal ``fps`` (e.g. 0.9999... * 25 = 25),
     which would produce an invalid timecode such as 00:00:00:25 at 25 fps.
+
+    .. warning::
+        29.97 fps drop-frame timecodes are NOT produced correctly.  The fps
+        value is rounded to 30 and simple integer division is used, which
+        drifts ~18 frames per hour.  For Reuters 25 fps content this function
+        is exact.  See module docstring for details.
     """
     fps_int = round(fps)
     total_frames_int = int(total_frames)

@@ -29,7 +29,18 @@ export default function ExportBar({ jobId, results }) {
   if (!results || results.length === 0 || !jobId) return null
 
   function handleDownload() {
-    window.location.href = `/export/${jobId}?format=csv`
+    // Generate CSV client-side from the current edited results so that any
+    // reassignments, splits, merges, or description edits are included in the
+    // download — the server's /export endpoint serves the original match output
+    // and does not know about UI-side edits (issue #12).
+    const csv = buildCsv(results)
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `shotlist_${jobId}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function handleCopy() {

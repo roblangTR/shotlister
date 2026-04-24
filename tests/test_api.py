@@ -479,3 +479,161 @@ class TestJobStore:
         id1 = c.post("/detect", json={"video_path": "/fake/a.mp4"}).json()["job_id"]
         id2 = c.post("/detect", json={"video_path": "/fake/b.mp4"}).json()["job_id"]
         assert id1 != id2
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for bug fixes
+# ---------------------------------------------------------------------------
+
+class TestVideoPathMismatch:
+    """Issue #14 — cached job_id + different video_path must return 400."""
+
+    def test_match_rejects_different_video_path(self, client):
+        """HTTP 400 when job_id is from a different video file."""
+        c, _ = client
+        detect_resp = c.post("/detect", json={"video_path": "/fake/original.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        resp = c.post("/match", json={
+            "job_id": job_id,
+            "video_path": "/fake/different.mp4",   # ← wrong path
+            "shotlist_text": SIMPLE_SHOTLIST,
+            "esso_token": "tok",
+            "workflow_id": "wf",
+        })
+        assert resp.status_code == 400
+        assert "video_path" in resp.json()["detail"].lower() or "match" in resp.json()["detail"].lower()
+
+    def test_match_accepts_same_video_path(self, client):
+        """HTTP 200 when job_id and video_path agree."""
+        c, _ = client
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        resp = c.post("/match", json={
+            "job_id": job_id,
+            "video_path": "/fake/video.mp4",   # ← same path
+            "shotlist_text": SIMPLE_SHOTLIST,
+            "esso_token": "tok",
+            "workflow_id": "wf",
+        })
+        assert resp.status_code == 200
+
+
+class TestDeepCopyShots:
+    """Issue #18 — extract_frames must not mutate the cached shot dicts."""
+
+    def test_cached_shots_not_mutated_after_match(self, client):
+        """Shots stored in the job dict must not gain frame_path after /match."""
+        c, jobs = client
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        # Annotate shots with frame_path in the mock extract_frames
+        def extract_with_frame_path(vp, shots, d):
+            for s in shots:
+                s["frame_path"] = f"/tmp/shot_{s['shot_index']}.jpg"
+            return shots
+
+        with patch("api.extract_frames", side_effect=extract_with_frame_path):
+            c.post("/match", json={
+                "job_id": job_id,
+                "video_path": "/fake/video.mp4",
+                "shotlist_text": SIMPLE_SHOTLIST,
+                "esso_token": "tok",
+                "workflow_id": "wf",
+            })
+
+        # The shots stored in the job dict from /detect must NOT have frame_path
+        for shot in jobs[job_id]["shots"]:
+            assert "frame_path" not in shot, (
+                f"Shot {shot['shot_index']} in job store was mutated with frame_path"
+            )
+
+
+class TestThumbnailDirCleanup:
+    """Issue #19 — old thumbnail dirs are removed before creating a new one."""
+
+    def test_old_thumbnail_dir_deleted_on_rematch(self, client, tmp_path):
+        """Previous thumbnail directory is removed when /match is called again."""
+        import shutil
+        c, jobs = client
+
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        # First match — creates a temp dir
+        c.post("/match", json={
+            "job_id": job_id,
+            "video_path": "/fake/video.mp4",
+            "shotlist_text": SIMPLE_SHOTLIST,
+            "esso_token": "tok",
+            "workflow_id": "wf",
+        })
+        first_thumb_dir = jobs[job_id].get("thumbnails_dir")
+        assert first_thumb_dir is not None
+        assert os.path.isdir(first_thumb_dir), "First thumb dir should exist after /match"
+
+        # Second match — old dir should be removed
+        c.post("/match", json={
+            "job_id": job_id,
+            "video_path": "/fake/video.mp4",
+            "shotlist_text": SIMPLE_SHOTLIST,
+            "esso_token": "tok",
+            "workflow_id": "wf",
+        })
+        assert not os.path.isdir(first_thumb_dir), (
+            "Old thumbnail dir should have been deleted on re-match"
+        )
+
+    def test_thumbnail_dir_cleaned_up_on_oa_failure(self, client):
+        """Thumbnail dir is removed when OA matching raises an error."""
+        c, jobs = client
+
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        with patch("api.OAMatcher") as MockMatcher:
+            matcher_instance = MagicMock()
+            matcher_instance.match.side_effect = RuntimeError("OA down")
+            MockMatcher.return_value = matcher_instance
+
+            resp = c.post("/match", json={
+                "job_id": job_id,
+                "video_path": "/fake/video.mp4",
+                "shotlist_text": SIMPLE_SHOTLIST,
+                "esso_token": "tok",
+                "workflow_id": "wf",
+            })
+
+        assert resp.status_code == 502
+        # The job's thumbnails_dir must be None (cleaned up)
+        assert jobs[job_id].get("thumbnails_dir") is None
+
+
+class TestEmptyOAResponse:
+    """Issue #17 — empty OA parse result must raise, not silently produce nulls."""
+
+    def test_match_returns_502_on_empty_gemini_response(self, client):
+        """When Gemini returns no parseable matches, /match returns 502."""
+        c, _ = client
+        detect_resp = c.post("/detect", json={"video_path": "/fake/video.mp4"})
+        job_id = detect_resp.json()["job_id"]
+
+        with patch("api.OAMatcher") as MockMatcher:
+            matcher_instance = MagicMock()
+            matcher_instance.match.side_effect = RuntimeError(
+                "Gemini returned no parseable matches. Raw response (0 chars): b''"
+            )
+            MockMatcher.return_value = matcher_instance
+
+            resp = c.post("/match", json={
+                "job_id": job_id,
+                "video_path": "/fake/video.mp4",
+                "shotlist_text": SIMPLE_SHOTLIST,
+                "esso_token": "tok",
+                "workflow_id": "wf",
+            })
+
+        assert resp.status_code == 502
+        assert "parseable" in resp.json()["detail"].lower() or "502" in str(resp.status_code)

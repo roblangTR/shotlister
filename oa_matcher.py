@@ -417,6 +417,21 @@ class OAMatcher:
         self.last_prompt = query
         self.last_raw_response = raw
 
+        # Raise if the model returned nothing parseable — surfacing the failure
+        # is far better than silently producing a full set of low-confidence
+        # no-match results (issue #17).
+        if not matches:
+            raise RuntimeError(
+                f"Gemini returned no parseable matches. "
+                f"Raw response ({len(raw)} chars): {raw[:300]!r}"
+            )
+        if len(matches) < len(shots) * 0.5:
+            logger.warning(
+                "Only %d/%d shots matched — possible partial parse. "
+                "Raw response: %s…",
+                len(matches), len(shots), raw[:200],
+            )
+
         # Build lookup: entry_number -> description
         entry_lookup: dict[int, str] = {
             e["entry_number"]: e["description"] for e in shotlist_entries

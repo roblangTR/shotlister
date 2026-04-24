@@ -19,7 +19,7 @@ import MergeModal from './MergeModal'
 import WhiteFlashModal from './WhiteFlashModal'
 import HelpModal from './HelpModal'
 
-export default function EditorPane({ results, shotlistEntries, onResultsChange, videoPath }) {
+export default function EditorPane({ results, jobId, shotlistEntries, onResultsChange, videoPath }) {
   const videoRef = useRef(null)
   const shotRefs = useRef({})
 
@@ -46,9 +46,17 @@ export default function EditorPane({ results, shotlistEntries, onResultsChange, 
   // Undo/redo history
   const { shots, hist, canUndo, canRedo, init, update, undo, redo } = useHistory(results || [])
 
-  // Initialise history when results first arrive
+  // Re-initialise history and reset selection whenever a new job arrives (issue #13).
+  // Using jobId (not results) as the dependency avoids an infinite re-render loop
+  // caused by object-identity changes in the results array on each render.
   const didInit = useRef(false)
-  useEffect(() => { if (results?.length) init(results) }, []) // eslint-disable-line
+  useEffect(() => {
+    if (results?.length) {
+      init(results)
+      setSel(0)
+      setSelIds(new Set())
+    }
+  }, [jobId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Propagate changes to parent
   useEffect(() => {

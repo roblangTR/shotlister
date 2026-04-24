@@ -61,6 +61,7 @@ export default function App() {
         <div className="flex-1 flex flex-col min-h-0 px-4 pb-2 gap-2">
           <EditorPane
             results={results}
+            jobId={jobId}
             shotlistEntries={shotlistEntries}
             onResultsChange={setResults}
             videoPath={videoPath}
